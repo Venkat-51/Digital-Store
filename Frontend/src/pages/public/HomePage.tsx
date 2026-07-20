@@ -1,14 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import Hero from '@/components/home/Hero';
-import CategoriesSection from '@/components/home/CategoriesSection';
-import FeaturedProducts from '@/components/home/FeaturedProducts';
-import ScrollStackCards from '@/components/home/ScrollStackCards';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Mail } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
-import { ROUTES } from '@/constants/routes';
+import { Mail } from 'lucide-react';
+import HorizontalCategoryBar from '@/components/home/HorizontalCategoryBar';
+import ProductGrid from '@/components/product/ProductGrid';
+import { useProducts } from '@/hooks/useProducts';
 
 const TESTIMONIALS = [
   { name: 'Sarah Tan', role: 'IT Manager, DBS Bank', rating: 5, text: 'Lexicon consistently delivers top quality hardware. Their corporate pricing and fast delivery make procurement seamless.' },
@@ -17,22 +14,36 @@ const TESTIMONIALS = [
 ];
 
 const HomePage: React.FC = () => {
+  // Fetch all products for the continuous feed
+  const { data: paginatedData, isLoading } = useProducts({ limit: 40 });
+  const products = paginatedData?.results || [];
+
   return (
     <>
       <Helmet>
         <title>Lexicon Technology — Premium Tech Products in Singapore</title>
-        <meta name="description" content="Shop premium computer accessories, gaming gear, data storage, and networking solutions at Lexicon Technology. Fast delivery across Singapore." />
-        <meta property="og:title" content="Lexicon Technology — Premium Tech Store Singapore" />
-        <meta property="og:description" content="2,500+ premium tech products. Authentic. Fast delivery. Expert support." />
+        <meta name="description" content="Shop premium computer accessories, gaming gear, data storage, and networking solutions at Lexicon Technology." />
       </Helmet>
 
-      <Hero />
-      <CategoriesSection />
-      <FeaturedProducts />
-      <ScrollStackCards />
+      {/* New Horizontal Category Bar */}
+      <HorizontalCategoryBar />
+
+      {/* Main E-commerce Product Feed */}
+      <section className="section bg-white pt-8 pb-16">
+        <div className="container-wide">
+          <div className="flex items-center justify-between mb-8">
+            <h1 className="text-2xl font-black text-gray-900 tracking-tight">We Think You'll Like</h1>
+          </div>
+          
+          <ProductGrid 
+            products={products} 
+            isLoading={isLoading} 
+          />
+        </div>
+      </section>
 
       {/* Testimonials */}
-      <section className="section" aria-labelledby="testimonials-heading">
+      <section className="section bg-gray-50 border-t border-gray-100" aria-labelledby="testimonials-heading">
         <div className="container-wide">
           <div className="text-center mb-12">
             <p className="text-sm font-bold text-primary-600 uppercase tracking-widest mb-2">Customer Stories</p>
@@ -48,18 +59,18 @@ const HomePage: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1, duration: 0.5 }}
-                className="card p-6 hover:shadow-card-hover transition-shadow duration-300"
+                className="card p-6 border-gray-100 border hover:shadow-card-hover transition-shadow duration-300 bg-white"
               >
                 <div className="flex mb-4">
                   {[...Array(t.rating)].map((_, j) => (
-                    <svg key={j} className="w-4 h-4 text-secondary-500 fill-current" viewBox="0 0 24 24">
+                    <svg key={j} className="w-4 h-4 text-primary-500 fill-current" viewBox="0 0 24 24">
                       <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
                     </svg>
                   ))}
                 </div>
                 <p className="text-sm text-gray-600 mb-5 leading-relaxed">"{t.text}"</p>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-primary-400 to-primary-700 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                  <div className="w-10 h-10 bg-primary-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
                     {t.name[0]}
                   </div>
                   <div>
@@ -73,8 +84,8 @@ const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* Newsletter / CTA Banner */}
-      <section className="py-16 bg-gradient-to-r from-primary-600 to-primary-800" aria-label="Newsletter">
+      {/* Newsletter */}
+      <section className="py-16 bg-primary-500" aria-label="Newsletter">
         <div className="container-wide">
           <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
             <div className="text-center lg:text-left">
@@ -90,43 +101,10 @@ const HomePage: React.FC = () => {
                   className="w-full pl-11 pr-4 py-3.5 rounded-2xl text-sm font-medium text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-white/50 bg-white"
                 />
               </div>
-              <Button variant="secondary" size="lg" type="submit">
+              <button className="px-6 py-3 bg-white text-primary-500 font-bold rounded-2xl hover:bg-gray-50 transition-colors" type="submit">
                 Subscribe
-              </Button>
+              </button>
             </form>
-          </div>
-        </div>
-      </section>
-
-      {/* Promo Banner */}
-      <section className="section bg-gray-50">
-        <div className="container-wide">
-          <div className="grid md:grid-cols-2 gap-5">
-            {[
-              { title: 'Gaming Zone', subtitle: 'Up to 30% off gaming peripherals', cta: 'Shop Gaming', to: '/categories/gaming', gradient: 'from-purple-600 to-indigo-700' },
-              { title: 'B2B Solutions', subtitle: 'Bulk pricing for businesses', cta: 'Get a Quote', to: ROUTES.CONTACT, gradient: 'from-primary-600 to-primary-800' },
-            ].map((promo) => (
-              <motion.div
-                key={promo.title}
-                initial={{ opacity: 0, scale: 0.98 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                className={`relative bg-gradient-to-br ${promo.gradient} rounded-3xl p-10 overflow-hidden`}
-              >
-                <div className="absolute inset-0 opacity-10">
-                  <div className="absolute -right-10 -top-10 w-40 h-40 bg-white rounded-full" />
-                  <div className="absolute -left-5 -bottom-5 w-32 h-32 bg-white rounded-full" />
-                </div>
-                <h3 className="text-2xl font-black text-white mb-2 relative z-10">{promo.title}</h3>
-                <p className="text-white/70 mb-6 relative z-10">{promo.subtitle}</p>
-                <Link
-                  to={promo.to}
-                  className="relative z-10 inline-flex items-center gap-2 px-5 py-2.5 bg-white text-gray-900 rounded-xl text-sm font-bold hover:bg-gray-100 transition-colors"
-                >
-                  {promo.cta} <ArrowRight size={14} />
-                </Link>
-              </motion.div>
-            ))}
           </div>
         </div>
       </section>

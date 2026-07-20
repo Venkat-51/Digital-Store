@@ -13,7 +13,7 @@ import { ROUTES } from '@/constants/routes';
 const registerSchema = z
   .object({
     first_name: z.string().min(2, 'First name required'),
-    last_name: z.string().min(2, 'Last name required'),
+    last_name: z.string().min(1, 'Last name required'),
     email: z.string().email('Valid email required'),
     phone: z.string().optional(),
     password: z.string().min(8, 'Password must be at least 8 characters'),

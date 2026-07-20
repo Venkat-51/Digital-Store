@@ -91,7 +91,7 @@ const OrderSuccessPage: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-gray-400 text-xs">Total</p>
-                  <p className="font-semibold text-gray-700">S${order.total}</p>
+                  <p className="font-semibold text-gray-700">${order.total}</p>
                 </div>
                 <div>
                   <p className="text-gray-400 text-xs">Status</p>

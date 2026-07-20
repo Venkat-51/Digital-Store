@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { ROUTES } from '@/constants/routes';
 
 const TRUST_BADGES = [
-  { icon: <Truck size={18} />, text: 'Free Delivery above S$80' },
+  { icon: <Truck size={18} />, text: 'Free Delivery above $80' },
   { icon: <Shield size={18} />, text: '1-Year Warranty' },
   { icon: <Headphones size={18} />, text: '24/7 Support' },
 ];

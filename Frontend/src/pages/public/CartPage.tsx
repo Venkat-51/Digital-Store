@@ -26,8 +26,8 @@ const CartPage: React.FC = () => {
     );
   }
 
-  const shipping = parseFloat(subtotal.replace('S$', '')) >= 80 ? 0 : 5.99;
-  const subtotalNum = parseFloat(subtotal.replace('S$', ''));
+  const shipping = parseFloat(subtotal.replace('$', '')) >= 80 ? 0 : 5.99;
+  const subtotalNum = parseFloat(subtotal.replace('$', ''));
   const total = subtotalNum + shipping;
 
   return (
@@ -90,15 +90,15 @@ const CartPage: React.FC = () => {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Shipping</span>
-                <span className="font-semibold">{shipping === 0 ? <span className="text-success-600">Free</span> : `S$${shipping.toFixed(2)}`}</span>
+                <span className="font-semibold">{shipping === 0 ? <span className="text-success-600">Free</span> : `$${shipping.toFixed(2)}`}</span>
               </div>
               <div className="border-t border-gray-100 pt-3 flex justify-between font-black text-base">
                 <span>Total</span>
-                <span className="text-primary-600">S${total.toFixed(2)}</span>
+                <span className="text-primary-600">${total.toFixed(2)}</span>
               </div>
             </div>
             {shipping > 0 && (
-              <p className="text-xs text-gray-400 text-center mb-4">Add S${(80 - subtotalNum).toFixed(2)} more for free shipping</p>
+              <p className="text-xs text-gray-400 text-center mb-4">Add ${(80 - subtotalNum).toFixed(2)} more for free shipping</p>
             )}
             <Link to={ROUTES.CHECKOUT}>
               <Button variant="primary" size="lg" fullWidth rightIcon={<ArrowRight size={16} />}>

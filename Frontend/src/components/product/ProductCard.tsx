@@ -9,6 +9,7 @@ import { useCart } from '@/hooks/useCart';
 import { useWishlist } from '@/hooks/useWishlist';
 import type { Product } from '@/types/product.types';
 import { Badge } from '@/components/ui/Badge';
+import { useProductImage } from '@/hooks/useProducts';
 
 interface ProductCardProps {
   product: Product;
@@ -24,7 +25,10 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickView, classNa
   const inCart = isInCart(product.id);
   const inWishlist = isInWishlist(product.id);
   const discount = product.compare_price ? calcDiscount(product.price, product.compare_price) : 0;
-  const image = getProductImage(product.images, product.thumbnail);
+  
+  // Lazily fetch the image from the backend
+  const { data: imageData, isLoading: isImageLoading } = useProductImage(product.id);
+  const image = imageData?.image_url || getProductImage(product.images, product.thumbnail);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -59,13 +63,19 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickView, classNa
     >
       <Link to={`/products/${product.slug}`} aria-label={product.name}>
         {/* Image */}
-        <div className="product-image-wrapper bg-gray-50">
-          <motion.img
-            src={image}
-            alt={product.name}
-            loading="lazy"
-            className="w-full h-full object-contain p-4 transition-transform duration-500 group-hover:scale-105"
-          />
+        <div className="product-image-wrapper bg-gray-50 relative">
+          {isImageLoading ? (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+            </div>
+          ) : (
+            <motion.img
+              src={image}
+              alt={product.name}
+              loading="lazy"
+              className="w-full h-full object-contain p-4 transition-transform duration-500 group-hover:scale-105"
+            />
+          )}
 
           {/* Badges */}
           <div className="absolute top-3 left-3 flex flex-col gap-1.5">

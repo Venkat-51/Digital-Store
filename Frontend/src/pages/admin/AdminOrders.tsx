@@ -63,7 +63,7 @@ const AdminOrders: React.FC = () => {
                       </td>
                       <td className="px-5 py-4 text-gray-500">{formatDate(order.created_at)}</td>
                       <td className="px-5 py-4 text-gray-700">{order.items.length}</td>
-                      <td className="px-5 py-4 font-bold text-gray-900">S${order.total}</td>
+                      <td className="px-5 py-4 font-bold text-gray-900">${order.total}</td>
                       <td className="px-5 py-4"><StatusBadge status={order.status} /></td>
                       <td className="px-5 py-4">
                         <select

@@ -79,8 +79,8 @@ const CheckoutPage: React.FC = () => {
     );
   }
 
-  const shipping = parseFloat(subtotal.replace('S$', '')) >= 80 ? 0 : 5.99;
-  const subtotalNum = parseFloat(subtotal.replace('S$', ''));
+  const shipping = parseFloat(subtotal.replace('$', '')) >= 80 ? 0 : 5.99;
+  const subtotalNum = parseFloat(subtotal.replace('$', ''));
   const total = subtotalNum + shipping;
 
   return (
@@ -216,7 +216,7 @@ const CheckoutPage: React.FC = () => {
                         <p className="text-xs text-gray-400 mt-0.5">Qty: {item.quantity}</p>
                       </div>
                       <span className="text-sm font-bold text-gray-900 flex-shrink-0">
-                        S${parseFloat(item.total_price).toFixed(2)}
+                        ${parseFloat(item.total_price).toFixed(2)}
                       </span>
                     </div>
                   ))}
@@ -230,12 +230,12 @@ const CheckoutPage: React.FC = () => {
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Shipping</span>
                     <span className="font-semibold text-gray-900">
-                      {shipping === 0 ? <span className="text-success-600">Free</span> : `S$${shipping.toFixed(2)}`}
+                      {shipping === 0 ? <span className="text-success-600">Free</span> : `$${shipping.toFixed(2)}`}
                     </span>
                   </div>
                   <div className="flex justify-between text-base font-black border-t border-gray-100 pt-3">
                     <span className="text-gray-900">Total</span>
-                    <span className="text-primary-600">S${total.toFixed(2)}</span>
+                    <span className="text-primary-600">${total.toFixed(2)}</span>
                   </div>
                 </div>
 

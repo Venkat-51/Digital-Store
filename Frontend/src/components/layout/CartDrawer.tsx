@@ -104,7 +104,7 @@ const CartDrawer: React.FC = () => {
                         </Link>
                         <p className="text-xs text-gray-400 mt-0.5">{item.product.brand?.name}</p>
                         <p className="text-sm font-bold text-primary-600 mt-1">
-                          S${parseFloat(item.unit_price).toFixed(2)}
+                          ${parseFloat(item.unit_price).toFixed(2)}
                         </p>
 
                         <div className="flex items-center justify-between mt-3">
@@ -132,7 +132,7 @@ const CartDrawer: React.FC = () => {
                           {/* Subtotal */}
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-bold text-gray-900">
-                              S${parseFloat(item.total_price).toFixed(2)}
+                              ${parseFloat(item.total_price).toFixed(2)}
                             </span>
                             <button
                               onClick={() => removeItem(item.id)}

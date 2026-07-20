@@ -23,6 +23,11 @@ export const productsService = {
     return data;
   },
 
+  getImage: async (productId: number): Promise<{ image_url: string }> => {
+    const { data } = await api.get(`/products/${productId}/image/`);
+    return data;
+  },
+
   search: async (query: string, filters?: ProductFilters): Promise<PaginatedResponse<Product>> => {
     const { data } = await api.get('/products/', { params: { search: query, ...filters } });
     return data;

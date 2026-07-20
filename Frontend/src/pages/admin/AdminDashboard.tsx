@@ -16,7 +16,7 @@ const AdminDashboard: React.FC = () => {
   });
 
   const STAT_CARDS = [
-    { label: 'Total Revenue', value: stats ? `S$${stats.total_revenue}` : '—', icon: <DollarSign size={20} />, color: 'bg-primary-50 text-primary-600', change: '+12%' },
+    { label: 'Total Revenue', value: stats ? `$${stats.total_revenue}` : '—', icon: <DollarSign size={20} />, color: 'bg-primary-50 text-primary-600', change: '+12%' },
     { label: 'Total Orders', value: stats?.total_orders ?? '—', icon: <ShoppingBag size={20} />, color: 'bg-secondary-50 text-secondary-600', change: '+8%' },
     { label: 'Customers', value: stats?.total_customers ?? '—', icon: <Users size={20} />, color: 'bg-green-50 text-green-600', change: '+5%' },
     { label: 'Products', value: stats?.total_products ?? '—', icon: <Package size={20} />, color: 'bg-purple-50 text-purple-600', change: '+2%' },

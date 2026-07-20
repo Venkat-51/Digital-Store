@@ -12,11 +12,11 @@ import { cn } from '@/utils/helpers';
 
 const PRICE_RANGES = [
   { label: 'All Prices', min: undefined, max: undefined },
-  { label: 'Under S$50', min: 0, max: 50 },
-  { label: 'S$50 – S$100', min: 50, max: 100 },
-  { label: 'S$100 – S$200', min: 100, max: 200 },
-  { label: 'S$200 – S$500', min: 200, max: 500 },
-  { label: 'Over S$500', min: 500, max: undefined },
+  { label: 'Under $50', min: 0, max: 50 },
+  { label: '$50 – $100', min: 50, max: 100 },
+  { label: '$100 – $200', min: 100, max: 200 },
+  { label: '$200 – $500', min: 200, max: 500 },
+  { label: 'Over $500', min: 500, max: undefined },
 ];
 
 const ShopPage: React.FC = () => {

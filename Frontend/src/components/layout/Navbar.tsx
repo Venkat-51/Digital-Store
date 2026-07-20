@@ -249,7 +249,7 @@ const Navbar: React.FC = () => {
                               <p className="text-xs text-gray-500">{p.brand?.name}</p>
                             </div>
                             <span className="text-sm font-bold text-primary-600 ml-auto flex-shrink-0">
-                              S${parseFloat(p.price).toFixed(2)}
+                              ${parseFloat(p.price).toFixed(2)}
                             </span>
                           </Link>
                         ))}

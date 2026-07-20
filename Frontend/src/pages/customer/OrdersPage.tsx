@@ -53,7 +53,7 @@ const OrdersPage: React.FC = () => {
                 </p>
               </div>
               <div className="flex items-center gap-4">
-                <p className="text-lg font-black text-gray-900">S${order.total}</p>
+                <p className="text-lg font-black text-gray-900">${order.total}</p>
                 <ArrowRight size={16} className="text-gray-300" />
               </div>
             </Link>

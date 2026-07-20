@@ -6,20 +6,20 @@ import { NAV_CATEGORIES } from '@/constants/config';
 
 const Footer: React.FC = () => {
   return (
-    <footer className="bg-gray-950 text-gray-400">
+    <footer className="bg-gradient-to-br from-primary-950 to-primary-600 text-white">
       {/* Main Footer */}
       <div className="container-wide py-16">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
           {/* Brand */}
           <div className="lg:col-span-1">
-            <Link to={ROUTES.HOME} className="inline-block mb-5 group">
+            <Link to={ROUTES.HOME} className="inline-block mb-5 group bg-white rounded-xl p-2 shadow-sm">
               <img
                 src="/logo-dark.png"
                 alt="Lexicon Technology Pte Ltd"
-                className="h-16 w-auto object-contain transition-transform duration-200 group-hover:scale-105"
+                className="h-12 w-auto object-contain transition-transform duration-200 group-hover:scale-105"
               />
             </Link>
-            <p className="text-sm leading-relaxed text-gray-500 mb-6">
+            <p className="text-sm leading-relaxed text-primary-100 mb-6">
               Your trusted partner for premium technology products in Singapore. We deliver excellence in every product.
             </p>
             <div className="flex gap-3">
@@ -34,7 +34,7 @@ const Footer: React.FC = () => {
                   key={s.label}
                   href="#"
                   aria-label={s.label}
-                  className="w-9 h-9 bg-gray-800 rounded-xl flex items-center justify-center text-gray-400 hover:bg-primary-600 hover:text-white transition-all duration-200"
+                  className="w-9 h-9 bg-primary-800/50 rounded-xl flex items-center justify-center text-primary-200 hover:bg-white hover:text-primary-600 transition-all duration-200"
                 >
                   <Share2 size={14} />
                 </a>
@@ -50,7 +50,7 @@ const Footer: React.FC = () => {
                 <li key={cat.slug}>
                   <Link
                     to={`/categories/${cat.slug}`}
-                    className="text-sm text-gray-400 hover:text-white transition-colors underline-anim"
+                    className="text-sm text-primary-100 hover:text-white transition-colors underline-anim"
                   >
                     {cat.name}
                   </Link>
@@ -74,7 +74,7 @@ const Footer: React.FC = () => {
                 <li key={link.to}>
                   <Link
                     to={link.to}
-                    className="text-sm text-gray-400 hover:text-white transition-colors underline-anim"
+                    className="text-sm text-primary-100 hover:text-white transition-colors underline-anim"
                   >
                     {link.label}
                   </Link>
@@ -92,8 +92,8 @@ const Footer: React.FC = () => {
                 { icon: <Phone size={15} />, text: '+65 6123 4567' },
                 { icon: <Mail size={15} />, text: 'hello@lexicontech.sg' },
               ].map((c) => (
-                <li key={c.text} className="flex items-start gap-3 text-sm text-gray-400">
-                  <span className="text-primary-500 mt-0.5 flex-shrink-0">{c.icon}</span>
+                <li key={c.text} className="flex items-start gap-3 text-sm text-primary-100">
+                  <span className="text-primary-300 mt-0.5 flex-shrink-0">{c.icon}</span>
                   {c.text}
                 </li>
               ))}
@@ -105,13 +105,13 @@ const Footer: React.FC = () => {
                 <input
                   type="email"
                   placeholder="Enter your email"
-                  className="flex-1 px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary-500 transition-colors"
+                  className="flex-1 px-3 py-2.5 bg-primary-900/30 border border-primary-400/30 rounded-xl text-sm text-white placeholder:text-primary-300 focus:outline-none focus:border-white transition-colors"
                 />
                 <button
                   aria-label="Subscribe to newsletter"
-                  className="px-3 py-2.5 bg-primary-600 hover:bg-primary-700 rounded-xl transition-colors flex-shrink-0"
+                  className="px-3 py-2.5 bg-white text-primary-600 hover:bg-gray-100 rounded-xl transition-colors flex-shrink-0"
                 >
-                  <ArrowRight size={16} className="text-white" />
+                  <ArrowRight size={16} />
                 </button>
               </div>
             </div>
@@ -120,9 +120,9 @@ const Footer: React.FC = () => {
       </div>
 
       {/* Bottom Bar */}
-      <div className="border-t border-gray-800">
+      <div className="border-t border-primary-500/30">
         <div className="container-wide py-5 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-xs text-gray-600 text-center sm:text-left">
+          <p className="text-xs text-primary-200 text-center sm:text-left">
             © {new Date().getFullYear()} Lexicon Technology Pte Ltd. All rights reserved.
           </p>
           <div className="flex items-center gap-4">

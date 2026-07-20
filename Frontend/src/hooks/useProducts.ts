@@ -36,3 +36,12 @@ export const useRelatedProducts = (productId: number) => {
     staleTime: 5 * 60 * 1000,
   });
 };
+
+export const useProductImage = (productId: number) => {
+  return useQuery({
+    queryKey: ['productImage', productId],
+    queryFn: () => productsService.getImage(productId),
+    enabled: !!productId,
+    staleTime: 60 * 60 * 1000, // 1 hour cache
+  });
+};

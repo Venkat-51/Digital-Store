@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/Button';
 
 const profileSchema = z.object({
   first_name: z.string().min(2, 'First name required'),
-  last_name: z.string().min(2, 'Last name required'),
+  last_name: z.string().min(1, 'Last name required'),
   email: z.string().email('Valid email required'),
   phone: z.string().optional(),
 });

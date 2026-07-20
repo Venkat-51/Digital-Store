@@ -18,14 +18,7 @@ const ICONS: Record<string, React.ReactNode> = {
   'power-bank':           <BatteryCharging size={36} />,
 };
 
-const COLORS = [
-  'from-blue-500 to-blue-800',
-  'from-purple-500 to-purple-800',
-  'from-orange-500 to-orange-800',
-  'from-teal-500 to-teal-800',
-  'from-indigo-500 to-indigo-800',
-  'from-rose-500 to-rose-800',
-];
+// Removed multi-color gradients to adhere to 2-color aesthetic
 
 const CategoriesPage: React.FC = () => {
   const { data: categories, isLoading } = useQuery({
@@ -62,13 +55,10 @@ const CategoriesPage: React.FC = () => {
               >
                 <Link
                   to={`/categories/${cat.slug}`}
-                  className={`group relative flex items-center gap-5 p-6 rounded-3xl bg-gradient-to-br ${COLORS[i % COLORS.length]} text-white overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1`}
+                  className="group relative flex items-center gap-5 p-6 rounded-3xl bg-primary-500 text-white overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
                 >
-                  <div className="absolute inset-0 opacity-10">
-                    <div className="absolute -right-8 -top-8 w-32 h-32 bg-white rounded-full" />
-                    <div className="absolute -left-4 -bottom-4 w-20 h-20 bg-white rounded-full" />
-                  </div>
-                  <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center flex-shrink-0 relative z-10 group-hover:scale-110 transition-transform duration-300">
+                  {/* Removed glass effect circles */}
+                  <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center flex-shrink-0 relative z-10 group-hover:scale-110 transition-transform duration-300 text-primary-500">
                     {ICONS[cat.slug] ?? <Monitor size={36} />}
                   </div>
                   <div className="relative z-10">
