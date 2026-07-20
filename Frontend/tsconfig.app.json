@@ -1,0 +1,45 @@
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "esnext",
+    "types": ["vite/client"],
+    "allowArbitraryExtensions": true,
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Strict */
+    "strict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true,
+
+    "ignoreDeprecations": "6.0",
+
+    /* Path aliases */
+    "baseUrl": ".",
+    "paths": {
+      "@/*":            ["./src/*"],
+      "@components/*":  ["./src/components/*"],
+      "@pages/*":       ["./src/pages/*"],
+      "@layouts/*":     ["./src/layouts/*"],
+      "@hooks/*":       ["./src/hooks/*"],
+      "@services/*":    ["./src/services/*"],
+      "@context/*":     ["./src/context/*"],
+      "@types/*":       ["./src/types/*"],
+      "@utils/*":       ["./src/utils/*"],
+      "@constants/*":   ["./src/constants/*"],
+      "@assets/*":      ["./src/assets/*"]
+    }
+  },
+  "include": ["src"]
+}
