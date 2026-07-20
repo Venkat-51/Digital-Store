@@ -41,9 +41,9 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
               'transition-all duration-200',
               'disabled:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-500',
               error ? 'border-danger-500 focus:ring-danger-500' : 'border-gray-200 hover:border-gray-300',
+              sizeClasses,
               leftIcon && 'pl-10',
               rightIcon && 'pr-10',
-              sizeClasses,
               className,
             )}
             {...props}
