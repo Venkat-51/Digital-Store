@@ -4,7 +4,7 @@
 
 export const CONFIG = {
   APP_NAME: import.meta.env.VITE_APP_NAME || 'Lexicon Technology',
-  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api',
+  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'https://api-digital-store-bmas.onrender.com/api',
   GOOGLE_CLIENT_ID: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
   APP_URL: import.meta.env.VITE_APP_URL || "http://localhost:5173",  CURRENCY: 'SGD',
   CURRENCY_SYMBOL: '$',
