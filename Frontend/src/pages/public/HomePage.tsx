@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Mail } from 'lucide-react';
+import { Mail, ArrowRight } from 'lucide-react';
+import HeroCarousel from '@/components/home/HeroCarousel';
 import HorizontalCategoryBar from '@/components/home/HorizontalCategoryBar';
 import ProductGrid from '@/components/product/ProductGrid';
 import { useProducts } from '@/hooks/useProducts';
+import { ROUTES } from '@/constants/routes';
 
 const TESTIMONIALS = [
   { name: 'Sarah Tan', role: 'IT Manager, DBS Bank', rating: 5, text: 'Lexicon consistently delivers top quality hardware. Their corporate pricing and fast delivery make procurement seamless.' },
@@ -14,8 +16,8 @@ const TESTIMONIALS = [
 ];
 
 const HomePage: React.FC = () => {
-  // Fetch all products for the continuous feed
-  const { data: paginatedData, isLoading } = useProducts({ page_size: 40 });
+  // Fetch top 4 products for the home screen
+  const { data: paginatedData, isLoading } = useProducts({ page_size: 4 });
   const products = paginatedData?.results || [];
 
   return (
@@ -24,6 +26,9 @@ const HomePage: React.FC = () => {
         <title>Lexicon Technology — Premium Tech Products in Singapore</title>
         <meta name="description" content="Shop premium computer accessories, gaming gear, data storage, and networking solutions at Lexicon Technology." />
       </Helmet>
+
+      {/* Hero Carousel Banner */}
+      <HeroCarousel />
 
       {/* New Horizontal Category Bar */}
       <HorizontalCategoryBar />
@@ -39,48 +44,18 @@ const HomePage: React.FC = () => {
             products={products} 
             isLoading={isLoading} 
           />
-        </div>
-      </section>
 
-      {/* Testimonials */}
-      <section className="section bg-gray-50 border-t border-gray-100" aria-labelledby="testimonials-heading">
-        <div className="container-wide">
-          <div className="text-center mb-12">
-            <p className="text-sm font-bold text-primary-600 uppercase tracking-widest mb-2">Customer Stories</p>
-            <h2 id="testimonials-heading" className="text-4xl font-black text-gray-900 tracking-tight">
-              Loved by 50,000+ Customers
-            </h2>
-          </div>
-          <div className="grid md:grid-cols-3 gap-5">
-            {TESTIMONIALS.map((t, i) => (
-              <motion.div
-                key={t.name}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1, duration: 0.5 }}
-                className="card p-6 border-gray-100 border hover:shadow-card-hover transition-shadow duration-300 bg-white"
+          {/* View More Button */}
+          {!isLoading && products.length > 0 && (
+            <div className="mt-12 flex justify-center">
+              <Link 
+                to={ROUTES.SHOP} 
+                className="inline-flex items-center gap-2 px-8 py-3.5 bg-white border-2 border-primary-500 text-primary-600 font-bold rounded-2xl hover:bg-primary-50 transition-colors shadow-sm"
               >
-                <div className="flex mb-4">
-                  {[...Array(t.rating)].map((_, j) => (
-                    <svg key={j} className="w-4 h-4 text-primary-500 fill-current" viewBox="0 0 24 24">
-                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                    </svg>
-                  ))}
-                </div>
-                <p className="text-sm text-gray-600 mb-5 leading-relaxed">"{t.text}"</p>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-primary-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
-                    {t.name[0]}
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-gray-900">{t.name}</p>
-                    <p className="text-xs text-gray-400">{t.role}</p>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
+                View More Products <ArrowRight size={18} />
+              </Link>
+            </div>
+          )}
         </div>
       </section>
 

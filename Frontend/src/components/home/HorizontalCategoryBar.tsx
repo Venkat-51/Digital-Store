@@ -17,9 +17,9 @@ const HorizontalCategoryBar: React.FC = () => {
   const displayCategories = (categories && categories.length > 0 ? categories : NAV_CATEGORIES.map((c) => ({ ...c, id: c.slug }))).slice(0, 8);
 
   return (
-    <div className="w-full bg-white border-b border-gray-100 sticky top-16 z-30 overflow-hidden">
+    <div className="w-full bg-white border-b border-gray-100 sticky top-[72px] lg:top-[160px] z-30 overflow-hidden">
       <div className="container-wide py-3">
-        <div className="flex items-center gap-3 overflow-x-auto no-scrollbar scroll-smooth pb-1">
+        <div className="flex items-center gap-3 overflow-x-auto no-scrollbar scroll-smooth pb-1 pr-16 md:pr-0">
           <Link
             to="/shop"
             className={cn(

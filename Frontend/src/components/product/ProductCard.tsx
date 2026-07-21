@@ -84,39 +84,37 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickView, classNa
             {!product.is_in_stock && <Badge variant="gray">Out of Stock</Badge>}
           </div>
 
-          {/* Hover actions */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: isHovered ? 1 : 0 }}
-            className="absolute top-3 right-3 flex flex-col gap-2"
+          {/* Wishlist Button (Always Visible) */}
+          <button
+            onClick={handleToggleWishlist}
+            aria-label={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+            className={cn(
+              'absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center shadow-sm border border-gray-100 transition-all z-10',
+              inWishlist
+                ? 'bg-red-50 text-red-500 border-red-100'
+                : 'bg-white text-gray-400 hover:text-red-500 hover:border-red-100',
+            )}
           >
-            {/* Wishlist */}
-            <motion.button
-              whileTap={{ scale: 0.9 }}
-              onClick={handleToggleWishlist}
-              aria-label={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
-              className={cn(
-                'w-9 h-9 rounded-xl flex items-center justify-center shadow-md transition-all',
-                inWishlist
-                  ? 'bg-secondary-500 text-white'
-                  : 'bg-white text-gray-600 hover:bg-secondary-50 hover:text-secondary-500',
-              )}
-            >
-              <Heart size={16} fill={inWishlist ? 'currentColor' : 'none'} />
-            </motion.button>
+            <Heart size={14} fill={inWishlist ? 'currentColor' : 'none'} />
+          </button>
 
-            {/* Quick View */}
-            {onQuickView && (
+          {/* Hover actions (Quick View) */}
+          {onQuickView && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: isHovered ? 1 : 0 }}
+              className="absolute top-14 right-3 flex flex-col gap-2 z-10"
+            >
               <motion.button
                 whileTap={{ scale: 0.9 }}
                 onClick={handleQuickView}
                 aria-label="Quick view"
-                className="w-9 h-9 rounded-xl bg-white text-gray-600 hover:bg-primary-50 hover:text-primary-600 flex items-center justify-center shadow-md transition-all"
+                className="w-8 h-8 rounded-full bg-white text-gray-600 hover:bg-primary-50 hover:text-primary-600 flex items-center justify-center shadow-sm border border-gray-100 transition-all"
               >
-                <Eye size={16} />
+                <Eye size={14} />
               </motion.button>
-            )}
-          </motion.div>
+            </motion.div>
+          )}
         </div>
 
         {/* Content */}

@@ -66,6 +66,11 @@ const router = createBrowserRouter([
       { path: 'faq',                  element: <Wrap><FAQPage /></Wrap> },
       { path: 'privacy-policy',       element: <Wrap><PrivacyPage /></Wrap> },
       { path: 'terms-and-conditions', element: <Wrap><TermsPage /></Wrap> },
+      { path: 'wholesale',            element: <Wrap><ContactPage /></Wrap> },
+      { path: 'trade-in',             element: <Wrap><ContactPage /></Wrap> },
+      { path: 'laptop-service',       element: <Wrap><ContactPage /></Wrap> },
+      { path: 'donate',               element: <Wrap><ContactPage /></Wrap> },
+      { path: 'order-tracking',       element: <Wrap><ContactPage /></Wrap> },
     ],
   },
   {

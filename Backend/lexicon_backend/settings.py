@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-27tofqytj=m6)2d&&cswz0s!m3@81e$za&trc%@z6+=^es7fk&
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['api-digital-store-bmas.onrender.com', 'localhost', '127.0.0.1']
 
 
 # Application definition

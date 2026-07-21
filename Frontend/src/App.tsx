@@ -5,6 +5,7 @@ import { AuthProvider } from '@/context/AuthContext';
 import { CartProvider } from '@/context/CartContext';
 import { WishlistProvider } from '@/context/WishlistContext';
 import { AppRouter } from '@/routes';
+import WhatsAppButton from '@/components/ui/WhatsAppButton';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -24,6 +25,7 @@ const App: React.FC = () => {
           <CartProvider>
             <WishlistProvider>
               <AppRouter />
+              <WhatsAppButton />
             </WishlistProvider>
           </CartProvider>
         </AuthProvider>

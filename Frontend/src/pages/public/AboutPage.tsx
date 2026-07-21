@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ShieldCheck, Target, Users, Award, ArrowRight } from 'lucide-react';
+import { ShieldCheck, Target, Users, Award, ArrowRight, Star } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ROUTES } from '@/constants/routes';
 
@@ -15,6 +15,27 @@ const TEAM = [
   { name: 'David Tan', role: 'CEO & Founder', initials: 'DT' },
   { name: 'Sarah Lim', role: 'Head of Operations', initials: 'SL' },
   { name: 'Michael Wong', role: 'Technical Director', initials: 'MW' },
+];
+
+const REVIEWS = [
+  {
+    text: "Lexicon consistently delivers top quality hardware. Their corporate pricing and fast delivery make procurement seamless.",
+    name: "Sarah Tan",
+    role: "IT Manager, DBS Bank",
+    initials: "S"
+  },
+  {
+    text: "Amazing selection of gaming peripherals. Got my setup upgraded within 2 days. 100% authentic products!",
+    name: "Michael Lim",
+    role: "Gamer & Content Creator",
+    initials: "M"
+  },
+  {
+    text: "Best place for office tech. Bought 20 units for my team. Great pricing and excellent after-sales support.",
+    name: "Priya Nair",
+    role: "Startup Founder",
+    initials: "P"
+  }
 ];
 
 const AboutPage: React.FC = () => (
@@ -77,6 +98,44 @@ const AboutPage: React.FC = () => (
               <div className="w-20 h-20 bg-gradient-to-br from-primary-500 to-primary-700 rounded-2xl flex items-center justify-center text-white text-2xl font-black mx-auto mb-4">{member.initials}</div>
               <p className="font-bold text-gray-900">{member.name}</p>
               <p className="text-sm text-gray-400">{member.role}</p>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    {/* Customer Stories */}
+    <div className="section bg-white">
+      <div className="container-wide">
+        <div className="text-center mb-12">
+          <p className="text-primary-500 font-bold text-sm uppercase tracking-widest mb-3">Customer Stories</p>
+          <h2 className="text-4xl font-black text-gray-900 mb-4">Loved by 50,000+ Customers</h2>
+        </div>
+        <div className="grid md:grid-cols-3 gap-8">
+          {REVIEWS.map((review, i) => (
+            <motion.div 
+              key={review.name} 
+              initial={{ opacity: 0, y: 20 }} 
+              whileInView={{ opacity: 1, y: 0 }} 
+              viewport={{ once: true }} 
+              transition={{ delay: i * 0.1 }} 
+              className="card p-8 border border-gray-100 shadow-sm rounded-3xl"
+            >
+              <div className="flex gap-1 mb-6 text-blue-500">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} size={18} className="fill-current text-blue-500" />
+                ))}
+              </div>
+              <p className="text-gray-600 leading-relaxed mb-8">"{review.text}"</p>
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">
+                  {review.initials}
+                </div>
+                <div>
+                  <p className="font-bold text-gray-900">{review.name}</p>
+                  <p className="text-sm text-gray-400">{review.role}</p>
+                </div>
+              </div>
             </motion.div>
           ))}
         </div>

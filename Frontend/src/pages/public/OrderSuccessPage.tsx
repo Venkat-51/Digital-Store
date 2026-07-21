@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { CheckCircle, Package, ArrowRight, Share2, Download, ShoppingBag } from 'lucide-react';
+import { CheckCircle, Package, ArrowRight, ShoppingBag } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { ordersService } from '@/services/orders.service';
 import { QUERY_KEYS } from '@/constants/queryKeys';
@@ -23,26 +23,6 @@ const OrderSuccessPage: React.FC = () => {
     confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#2563eb', '#f97316', '#22c55e'] });
   }, []);
 
-  const handleDownload = async () => {
-    if (!orderNumber) return;
-    try {
-      const blob = await ordersService.downloadInvoice(orderNumber);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `invoice-${orderNumber}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      /* no-op */
-    }
-  };
-
-  const handleShare = () => {
-    if (navigator.share) {
-      navigator.share({ title: 'My Lexicon Order', text: `Order #${orderNumber} placed!`, url: window.location.href });
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary-50 to-white flex items-center justify-center px-4 py-16">
@@ -116,14 +96,7 @@ const OrderSuccessPage: React.FC = () => {
             >
               Track My Order
             </Button>
-            <div className="grid grid-cols-2 gap-3">
-              <Button variant="outline" size="md" leftIcon={<Download size={16} />} onClick={handleDownload}>
-                Download PDF
-              </Button>
-              <Button variant="outline" size="md" leftIcon={<Share2 size={16} />} onClick={handleShare}>
-                Share
-              </Button>
-            </div>
+
             <Link to={ROUTES.SHOP}>
               <Button variant="ghost" size="md" fullWidth rightIcon={<ArrowRight size={16} />}>
                 Continue Shopping
