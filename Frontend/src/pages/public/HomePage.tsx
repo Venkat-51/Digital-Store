@@ -4,7 +4,6 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Mail, ArrowRight } from 'lucide-react';
 import HeroCarousel from '@/components/home/HeroCarousel';
-import HorizontalCategoryBar from '@/components/home/HorizontalCategoryBar';
 import ProductGrid from '@/components/product/ProductGrid';
 import { useProducts } from '@/hooks/useProducts';
 import { ROUTES } from '@/constants/routes';
@@ -29,9 +28,6 @@ const HomePage: React.FC = () => {
 
       {/* Hero Carousel Banner */}
       <HeroCarousel />
-
-      {/* New Horizontal Category Bar */}
-      <HorizontalCategoryBar />
 
       {/* Main E-commerce Product Feed */}
       <section className="section bg-white pt-8 pb-16">

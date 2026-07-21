@@ -121,6 +121,7 @@ const Footer: React.FC = () => {
 
       {/* Bottom Bar */}
       <div className="border-t border-primary-500/30">
+       
         <div className="container-wide py-5 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-xs text-primary-200 text-center sm:text-left">
             © {new Date().getFullYear()} Lexicon Technology Pte Ltd. All rights reserved.
