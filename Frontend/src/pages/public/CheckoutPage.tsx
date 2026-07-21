@@ -230,7 +230,7 @@ const CheckoutPage: React.FC = () => {
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Shipping</span>
                     <span className="font-semibold text-gray-900">
-                      {shipping === 0 ? <span className="text-success-600">Free</span> : `$${shipping.toFixed(2)}`}
+                      {shipping === 0 ? <span className="text-success-600">Free</span> : `${shipping.toFixed(2)}`}
                     </span>
                   </div>
                   <div className="flex justify-between text-base font-black border-t border-gray-100 pt-3">

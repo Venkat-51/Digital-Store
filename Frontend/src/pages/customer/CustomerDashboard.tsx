@@ -25,7 +25,7 @@ const CustomerDashboard: React.FC = () => {
 
   const STAT_CARDS = [
     { icon: <ShoppingBag size={22} />, label: 'Total Orders', value: stats?.total_orders ?? 0, color: 'from-primary-500 to-primary-700', to: ROUTES.ORDERS },
-    { icon: <DollarSign size={22} />, label: 'Total Spent', value: `$${stats?.total_spent ?? '0.00'}`, color: 'from-secondary-500 to-secondary-700', to: ROUTES.ORDERS },
+    { icon: <DollarSign size={22} />, label: 'Total Spent', value: `${stats?.total_spent ?? '0.00'}`, color: 'from-secondary-500 to-secondary-700', to: ROUTES.ORDERS },
     { icon: <Heart size={22} />, label: 'Wishlist Items', value: stats?.wishlist_count ?? 0, color: 'from-rose-500 to-rose-700', to: ROUTES.WISHLIST_ACCOUNT },
     { icon: <Clock size={22} />, label: 'Pending Orders', value: stats?.pending_orders ?? 0, color: 'from-yellow-500 to-yellow-700', to: ROUTES.ORDERS },
   ];

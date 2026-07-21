@@ -90,7 +90,7 @@ const CartPage: React.FC = () => {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Shipping</span>
-                <span className="font-semibold">{shipping === 0 ? <span className="text-success-600">Free</span> : `$${shipping.toFixed(2)}`}</span>
+                <span className="font-semibold">{shipping === 0 ? <span className="text-success-600">Free</span> : `${shipping.toFixed(2)}`}</span>
               </div>
               <div className="border-t border-gray-100 pt-3 flex justify-between font-black text-base">
                 <span>Total</span>

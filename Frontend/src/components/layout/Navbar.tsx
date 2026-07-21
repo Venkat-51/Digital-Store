@@ -74,13 +74,13 @@ const Navbar: React.FC = () => {
       <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm flex flex-col">
 
         {/* MAIN HEADER */}
-        <div className="container-wide py-4 flex items-center justify-between gap-6">
+        <div className="container-wide px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between gap-4 sm:gap-6">
           {/* Logo */}
-          <Link to={ROUTES.HOME} className="flex-shrink-0">
+          <Link to={ROUTES.HOME} className="flex-shrink-0 flex items-center h-10">
             <img
               src="/logo.png"
               alt="Lexicon Technology"
-              className="h-10 w-auto object-contain"
+              className="h-7 sm:h-8 lg:h-10 w-auto object-contain"
             />
           </Link>
 
@@ -153,7 +153,7 @@ const Navbar: React.FC = () => {
           </div>
 
           {/* Right Actions (Account, Wishlist, Cart) */}
-          <div className="flex items-center gap-6 lg:gap-8 ml-auto">
+          <div className="flex items-center gap-3 sm:gap-5 lg:gap-8 ml-auto">
             
             {/* Auth Menu */}
             <div className="hidden lg:flex items-center gap-2 relative">
@@ -228,10 +228,14 @@ const Navbar: React.FC = () => {
             </Link>
 
             {/* Cart */}
-            <button onClick={openCart} className="flex items-center gap-3 hover:opacity-80 group">
-               <div className="relative">
-                 <ShoppingCart size={24} className="text-gray-700" />
-                 <span className="absolute -top-1.5 -right-2 w-5 h-5 bg-yellow-400 text-gray-900 text-xs font-bold rounded-full flex items-center justify-center border border-white">
+            <button
+              onClick={openCart}
+              className="flex items-center gap-2.5 p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors group"
+              aria-label="Shopping Cart"
+            >
+               <div className="relative flex items-center justify-center">
+                 <ShoppingCart size={22} className="text-gray-700" />
+                 <span className="absolute -top-2 -right-2.5 w-5 h-5 bg-yellow-400 text-gray-900 text-xs font-bold rounded-full flex items-center justify-center border-2 border-white shadow-xs">
                    {itemCount}
                  </span>
                </div>
@@ -244,7 +248,8 @@ const Navbar: React.FC = () => {
             {/* Mobile Menu Toggle */}
             <button
               onClick={() => setIsMobileOpen((p) => !p)}
-              className="lg:hidden p-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+              className="lg:hidden p-2 text-gray-700 hover:bg-gray-100 rounded-lg flex items-center justify-center transition-colors"
+              aria-label="Toggle Menu"
             >
               {isMobileOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
@@ -328,7 +333,7 @@ const Navbar: React.FC = () => {
       </header>
 
       {/* Spacer to push content down (since header is fixed) */}
-      <div className="h-[72px] lg:h-[160px]" />
+      <div className="h-[56px] sm:h-[64px] lg:h-[110px]" />
 
       {/* MOBILE MENU overlay */}
       <AnimatePresence>
