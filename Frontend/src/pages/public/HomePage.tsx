@@ -17,7 +17,7 @@ const TESTIMONIALS = [
 const HomePage: React.FC = () => {
   // Fetch top 4 products for the home screen
   const { data: paginatedData, isLoading } = useProducts({ page_size: 4 });
-  const products = paginatedData?.results || [];
+  const products = (paginatedData?.results || []).slice(0, 4);
 
   return (
     <>

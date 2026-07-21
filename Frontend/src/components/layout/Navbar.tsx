@@ -72,12 +72,6 @@ const Navbar: React.FC = () => {
   return (
     <>
       <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm flex flex-col">
-        {/* TOP BAR */}
-        <div className="hidden lg:flex justify-end items-center px-8 py-1.5 bg-gray-50 border-b border-gray-100 text-xs text-gray-500 gap-6">
-          <Link to={ROUTES.PROFILE} className="hover:text-primary-600 transition-colors">My account</Link>
-          <Link to={ROUTES.ORDER_TRACKING} className="hover:text-primary-600 transition-colors">Order Tracking</Link>
-          <Link to={ROUTES.WISHLIST} className="hover:text-primary-600 transition-colors">Wishlist</Link>
-        </div>
 
         {/* MAIN HEADER */}
         <div className="container-wide py-4 flex items-center justify-between gap-6">
@@ -111,23 +105,6 @@ const Navbar: React.FC = () => {
                       exit={{ opacity: 0, y: 5 }}
                       className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-100 shadow-xl rounded-lg py-1 z-50"
                     >
-                      <button
-                        type="button"
-                        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
-                        onClick={() => { setSearchCategory('All'); setIsSearchCatOpen(false); }}
-                      >
-                        All
-                      </button>
-                      {NAV_CATEGORIES.map(cat => (
-                        <button
-                          key={cat.slug}
-                          type="button"
-                          className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 truncate"
-                          onClick={() => { setSearchCategory(cat.name); setIsSearchCatOpen(false); }}
-                        >
-                          {cat.name}
-                        </button>
-                      ))}
                     </motion.div>
                   )}
                 </AnimatePresence>

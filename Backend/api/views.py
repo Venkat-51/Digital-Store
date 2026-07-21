@@ -49,11 +49,29 @@ class ProductListView(APIView):
             }
             products.append(formatted)
             
+        # Handle pagination
+        try:
+            page_size = int(request.query_params.get('page_size', 0))
+        except (ValueError, TypeError):
+            page_size = 0
+
+        try:
+            page = int(request.query_params.get('page', 1))
+        except (ValueError, TypeError):
+            page = 1
+
+        if page_size > 0:
+            start = (page - 1) * page_size
+            end = start + page_size
+            paginated_products = products[start:end]
+        else:
+            paginated_products = products
+
         response_data = {
             "count": len(products),
             "next": None,
             "previous": None,
-            "results": products
+            "results": paginated_products
         }
         return Response(response_data)
 
