@@ -15,7 +15,7 @@ const TESTIMONIALS = [
 
 const HomePage: React.FC = () => {
   // Fetch all products for the continuous feed
-  const { data: paginatedData, isLoading } = useProducts({ limit: 40 });
+  const { data: paginatedData, isLoading } = useProducts({ page_size: 40 });
   const products = paginatedData?.results || [];
 
   return (
