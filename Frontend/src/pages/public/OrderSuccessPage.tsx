@@ -94,7 +94,7 @@ const OrderSuccessPage: React.FC = () => {
                     {order.items.map((item, idx) => (
                       <div key={idx} className="flex items-center justify-between text-xs py-1 border-b border-gray-50 last:border-0">
                         <span className="font-medium text-gray-800 truncate max-w-[220px]">
-                          {item.product?.name || `Product #${item.product_id}`} × {item.quantity}
+                          {item.product?.name || item.product_name || (item.product_id ? `Product #${item.product_id}` : `Product #${item.id}`)} × {item.quantity}
                         </span>
                         <span className="font-bold text-gray-900">${item.total_price || item.product?.price}</span>
                       </div>
