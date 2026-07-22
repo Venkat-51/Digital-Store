@@ -74,9 +74,9 @@ const Navbar: React.FC = () => {
       <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm flex flex-col">
 
         {/* MAIN HEADER */}
-        <div className="container-wide px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between gap-4 sm:gap-6">
+        <div className="w-full container-wide px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3 sm:gap-6">
           {/* Logo */}
-          <Link to={ROUTES.HOME} className="flex-shrink-0 flex items-center h-10">
+          <Link to={ROUTES.HOME} className="flex-shrink-0 flex items-center h-8 sm:h-10">
             <img
               src="/logo.png"
               alt="Lexicon Technology"
@@ -248,7 +248,7 @@ const Navbar: React.FC = () => {
             {/* Mobile Menu Toggle */}
             <button
               onClick={() => setIsMobileOpen((p) => !p)}
-              className="lg:hidden p-2 text-gray-700 hover:bg-gray-100 rounded-lg flex items-center justify-center transition-colors"
+              className="lg:hidden p-2 -mr-2 text-gray-700 hover:bg-gray-100 rounded-lg flex items-center justify-center transition-colors"
               aria-label="Toggle Menu"
             >
               {isMobileOpen ? <X size={24} /> : <Menu size={24} />}
@@ -347,11 +347,11 @@ const Navbar: React.FC = () => {
               onClick={() => setIsMobileOpen(false)}
             />
             <motion.div
-              initial={{ x: '-100%' }}
+              initial={{ x: '100%' }}
               animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
+              exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="fixed top-0 left-0 z-50 h-full w-4/5 max-w-sm bg-white shadow-2xl lg:hidden flex flex-col overflow-y-auto"
+              className="fixed top-0 right-0 z-50 h-full w-4/5 max-w-sm bg-white shadow-2xl lg:hidden flex flex-col overflow-y-auto"
             >
               <div className="p-4 border-b border-gray-100 flex items-center justify-between">
                 <img src="/logo.png" alt="Logo" className="h-8" />

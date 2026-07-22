@@ -176,6 +176,7 @@
 
   /* ── Wide container ── */
   .container-wide {
+    width: 100%;
     max-width: 1536px;
     margin-left: auto;
     margin-right: auto;

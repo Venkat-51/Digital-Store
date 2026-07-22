@@ -26,9 +26,11 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickView, classNa
   const inWishlist = isInWishlist(product.id);
   const discount = product.compare_price ? calcDiscount(product.price, product.compare_price) : 0;
   
-  // Lazily fetch the image from the backend
-  const { data: imageData, isLoading: isImageLoading } = useProductImage(product.id);
-  const image = imageData?.image_url || getProductImage(product.images, product.thumbnail);
+  const initialImage = getProductImage(product.images, product.thumbnail);
+  const { data: imageData } = useProductImage(product.id);
+  const image = (imageData?.image_url && imageData.image_url !== '/placeholder-product.png')
+    ? imageData.image_url
+    : initialImage;
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -63,19 +65,16 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickView, classNa
     >
       <Link to={`/products/${product.slug}`} aria-label={product.name}>
         {/* Image */}
-        <div className="product-image-wrapper bg-gray-50 relative">
-          {isImageLoading ? (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-            </div>
-          ) : (
-            <motion.img
-              src={image}
-              alt={product.name}
-              loading="lazy"
-              className="w-full h-full object-contain p-4 transition-transform duration-500 group-hover:scale-105"
-            />
-          )}
+        <div className="product-image-wrapper bg-gray-50 relative flex items-center justify-center">
+          <motion.img
+            src={image || 'https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=600&auto=format&fit=crop&q=80'}
+            alt={product.name}
+            loading="lazy"
+            className="w-full h-full object-contain p-4 transition-transform duration-500 group-hover:scale-105"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=600&auto=format&fit=crop&q=80';
+            }}
+          />
 
           {/* Badges */}
           <div className="absolute top-3 left-3 flex flex-col gap-1.5">

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';    
 import { motion } from 'framer-motion';
 import { gsap } from 'gsap';
 import { ArrowRight, ShoppingBag, Star, Truck, Shield, Headphones } from 'lucide-react';
@@ -170,7 +170,6 @@ const Hero: React.FC = () => {
                   <p className="text-white font-bold text-lg">Premium Tech</p>
                   <p className="text-white/60 text-sm">2,500+ Products</p>
                 </div>
-
                 {/* Animated ring */}
                 <motion.div
                   animate={{ rotate: 360 }}

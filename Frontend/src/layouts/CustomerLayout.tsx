@@ -84,7 +84,7 @@ const CustomerLayout: React.FC = () => {
 
         <div className="flex gap-6">
           {/* Desktop sidebar */}
-          <div className="hidden lg:block">
+          <div className="block">
             <Sidebar />
           </div>
 

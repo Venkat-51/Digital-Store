@@ -23,18 +23,21 @@ class ProductListView(APIView):
         products = []
         for p in raw_products:
             prod_id = int(p.get('Product ID', 0))
+            prod_name = p.get('Product Name', '')
+            image_url = get_product_image_url(prod_name)
             
             # Formatted product
             formatted = {
                 "id": prod_id,
-                "name": p.get('Product Name', ''),
-                "slug": p.get('Product Name', '').lower().replace(' ', '-'),
+                "name": prod_name,
+                "slug": prod_name.lower().replace(' ', '-'),
                 "sku": p.get('SKU', ''),
                 "description": "",
                 "category": {"id": 1, "name": p.get('Category', ''), "slug": p.get('Category', '').lower().replace(' ', '-')},
                 "brand": {"id": 1, "name": p.get('Brand', ''), "slug": p.get('Brand', '').lower().replace(' ', '-')},
                 "price": p.get('Price (SGD)', '0.00'),
-                "images": [],
+                "thumbnail": image_url,
+                "images": [{"id": 1, "image": image_url, "is_primary": True}],
                 "stock": int(p.get('Stock', 0) or 0),
                 "is_in_stock": int(p.get('Stock', 0) or 0) > 0,
                 "is_featured": False,
@@ -84,18 +87,21 @@ class ProductDetailView(APIView):
             p_slug = p.get('Product Name', '').lower().replace(' ', '-')
             if p_slug == slug:
                 prod_id = int(p.get('Product ID', 0))
+                prod_name = p.get('Product Name', '')
+                image_url = get_product_image_url(prod_name)
                 
                 # Format product exactly like ListView does
                 formatted = {
                     "id": prod_id,
-                    "name": p.get('Product Name', ''),
+                    "name": prod_name,
                     "slug": p_slug,
                     "sku": p.get('SKU', ''),
                     "description": p.get('Description', ''),
                     "category": {"id": 1, "name": p.get('Category', ''), "slug": p.get('Category', '').lower().replace(' ', '-')},
                     "brand": {"id": 1, "name": p.get('Brand', ''), "slug": p.get('Brand', '').lower().replace(' ', '-')},
                     "price": p.get('Price (SGD)', '0.00'),
-                    "images": [],
+                    "thumbnail": image_url,
+                    "images": [{"id": 1, "image": image_url, "is_primary": True}],
                     "stock": int(p.get('Stock', 0) or 0),
                     "is_in_stock": int(p.get('Stock', 0) or 0) > 0,
                     "is_featured": False,
@@ -163,6 +169,72 @@ class AuthLoginView(APIView):
         }
         return Response({"tokens": tokens, "user": user})
 
+class ProductFeaturedView(APIView):
+    def get(self, request):
+        raw_products = parse_csv('products_template.csv')
+        products = []
+        for p in raw_products[:4]:
+            prod_id = int(p.get('Product ID', 0))
+            prod_name = p.get('Product Name', '')
+            image_url = get_product_image_url(prod_name)
+            formatted = {
+                "id": prod_id,
+                "name": prod_name,
+                "slug": prod_name.lower().replace(' ', '-'),
+                "sku": p.get('SKU', ''),
+                "description": "",
+                "category": {"id": 1, "name": p.get('Category', ''), "slug": p.get('Category', '').lower().replace(' ', '-')},
+                "brand": {"id": 1, "name": p.get('Brand', ''), "slug": p.get('Brand', '').lower().replace(' ', '-')},
+                "price": p.get('Price (SGD)', '0.00'),
+                "thumbnail": image_url,
+                "images": [{"id": 1, "image": image_url, "is_primary": True}],
+                "stock": int(p.get('Stock', 0) or 0),
+                "is_in_stock": int(p.get('Stock', 0) or 0) > 0,
+                "is_featured": True,
+                "is_new": True,
+                "is_sale": False,
+                "created_at": "2026-01-01T00:00:00Z",
+                "updated_at": "2026-01-01T00:00:00Z",
+                "specifications": []
+            }
+            products.append(formatted)
+        return Response(products)
+
+class ProductRelatedView(APIView):
+    def get(self, request, product_id):
+        raw_products = parse_csv('products_template.csv')
+        products = []
+        for p in raw_products:
+            prod_id = int(p.get('Product ID', 0))
+            if prod_id == product_id:
+                continue
+            prod_name = p.get('Product Name', '')
+            image_url = get_product_image_url(prod_name)
+            formatted = {
+                "id": prod_id,
+                "name": prod_name,
+                "slug": prod_name.lower().replace(' ', '-'),
+                "sku": p.get('SKU', ''),
+                "description": "",
+                "category": {"id": 1, "name": p.get('Category', ''), "slug": p.get('Category', '').lower().replace(' ', '-')},
+                "brand": {"id": 1, "name": p.get('Brand', ''), "slug": p.get('Brand', '').lower().replace(' ', '-')},
+                "price": p.get('Price (SGD)', '0.00'),
+                "thumbnail": image_url,
+                "images": [{"id": 1, "image": image_url, "is_primary": True}],
+                "stock": int(p.get('Stock', 0) or 0),
+                "is_in_stock": int(p.get('Stock', 0) or 0) > 0,
+                "is_featured": False,
+                "is_new": True,
+                "is_sale": False,
+                "created_at": "2026-01-01T00:00:00Z",
+                "updated_at": "2026-01-01T00:00:00Z",
+                "specifications": []
+            }
+            products.append(formatted)
+            if len(products) >= 4:
+                break
+        return Response(products)
+
 class OrderCreateView(APIView):
     def post(self, request):
         order = {
@@ -199,3 +271,41 @@ class OrderCreateView(APIView):
             "updated_at": "2026-07-20T18:00:00Z"
         }
         return Response(order)
+
+class OrderDetailView(APIView):
+    def get(self, request, order_number):
+        order = {
+            "id": 1001,
+            "order_number": order_number,
+            "customer": {
+                "id": 1,
+                "email": "customer@example.com",
+                "first_name": "Test",
+                "last_name": "User",
+                "is_staff": False,
+                "is_active": True,
+                "date_joined": "2026-01-01T00:00:00Z"
+            },
+            "items": [],
+            "status": "confirmed",
+            "shipping_address": {
+                "id": 1,
+                "label": "Home",
+                "full_name": "Test User",
+                "phone": "+65 1234 5678",
+                "address_line1": "123 Tech Park",
+                "city": "Singapore",
+                "state": "SG",
+                "postal_code": "123456",
+                "country": "Singapore",
+                "is_default": True
+            },
+            "subtotal": "297.00",
+            "shipping_cost": "0.00",
+            "tax": "0.00",
+            "total": "297.00",
+            "created_at": "2026-07-20T18:00:00Z",
+            "updated_at": "2026-07-20T18:00:00Z"
+        }
+        return Response(order)
+
