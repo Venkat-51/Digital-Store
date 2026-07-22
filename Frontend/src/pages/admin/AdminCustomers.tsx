@@ -19,8 +19,8 @@ const AdminCustomers: React.FC = () => {
         <h1 className="text-xl font-black text-gray-900">Customers</h1>
       </div>
       <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto w-full">
+          <table className="w-full text-sm min-w-[600px]">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
                 {['Customer', 'Email', 'Phone', 'Joined', 'Status'].map((h) => (

@@ -19,6 +19,8 @@ const OrderSuccessPage: React.FC = () => {
   });
 
   React.useEffect(() => {
+    // Scroll to top of the page
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     // Fire confetti
     confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#2563eb', '#f97316', '#22c55e'] });
   }, []);
@@ -64,24 +66,42 @@ const OrderSuccessPage: React.FC = () => {
               </div>
             </div>
             {order && (
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <p className="text-gray-400 text-xs">Date</p>
-                  <p className="font-semibold text-gray-700">{formatDate(order.created_at)}</p>
+              <>
+                <div className="grid grid-cols-2 gap-3 text-sm border-b border-gray-100 pb-4 mb-4">
+                  <div>
+                    <p className="text-gray-400 text-xs">Date</p>
+                    <p className="font-semibold text-gray-700">{formatDate(order.created_at)}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-xs">Total</p>
+                    <p className="font-semibold text-gray-700">${order.total}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-xs">Status</p>
+                    <p className="font-semibold text-success-600 capitalize">{order.status}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-xs">Items</p>
+                    <p className="font-semibold text-gray-700">
+                      {order.items?.reduce((acc, item) => acc + (item.quantity || 1), 0) || 0} items
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-gray-400 text-xs">Total</p>
-                  <p className="font-semibold text-gray-700">${order.total}</p>
-                </div>
-                <div>
-                  <p className="text-gray-400 text-xs">Status</p>
-                  <p className="font-semibold text-success-600 capitalize">{order.status}</p>
-                </div>
-                <div>
-                  <p className="text-gray-400 text-xs">Items</p>
-                  <p className="font-semibold text-gray-700">{order.items.length} items</p>
-                </div>
-              </div>
+
+                {order.items && order.items.length > 0 && (
+                  <div className="space-y-2 text-left">
+                    <p className="text-2xs font-bold text-gray-400 uppercase tracking-wider mb-2">Purchased Products</p>
+                    {order.items.map((item, idx) => (
+                      <div key={idx} className="flex items-center justify-between text-xs py-1 border-b border-gray-50 last:border-0">
+                        <span className="font-medium text-gray-800 truncate max-w-[220px]">
+                          {item.product?.name || `Product #${item.product_id}`} × {item.quantity}
+                        </span>
+                        <span className="font-bold text-gray-900">${item.total_price || item.product?.price}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
 

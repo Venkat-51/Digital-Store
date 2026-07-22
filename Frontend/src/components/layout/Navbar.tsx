@@ -360,6 +360,74 @@ const Navbar: React.FC = () => {
                 </button>
               </div>
 
+              {/* Mobile Auth / Sign In Section */}
+              {isAuthenticated ? (
+                <div className="p-4 border-b border-gray-100 bg-primary-50/50">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 bg-primary-600 text-white rounded-full flex items-center justify-center font-bold">
+                      {user?.first_name?.[0]?.toUpperCase() || <User size={20} />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs text-gray-500 font-medium">Signed in as</p>
+                      <p className="text-sm font-bold text-gray-900 truncate">{user?.first_name} {user?.last_name}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs font-semibold">
+                    <Link
+                      to={ROUTES.DASHBOARD}
+                      className="flex items-center justify-center gap-1.5 py-2 bg-white rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50"
+                      onClick={() => setIsMobileOpen(false)}
+                    >
+                      <LayoutDashboard size={14} /> Dashboard
+                    </Link>
+                    <Link
+                      to={ROUTES.ORDERS}
+                      className="flex items-center justify-center gap-1.5 py-2 bg-white rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50"
+                      onClick={() => setIsMobileOpen(false)}
+                    >
+                      <Package size={14} /> Orders
+                    </Link>
+                    {user?.is_staff && (
+                      <Link
+                        to={ROUTES.ADMIN}
+                        className="col-span-2 flex items-center justify-center gap-1.5 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 shadow-xs"
+                        onClick={() => setIsMobileOpen(false)}
+                      >
+                        <Settings size={14} /> Admin Panel
+                      </Link>
+                    )}
+                    <button
+                      onClick={() => {
+                        handleLogout();
+                        setIsMobileOpen(false);
+                      }}
+                      className="col-span-2 flex items-center justify-center gap-1.5 py-2 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                    >
+                      <LogOut size={14} /> Sign Out
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center flex-shrink-0">
+                      <User size={20} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 font-medium">Welcome to Lexicon</p>
+                      <p className="text-sm font-bold text-gray-900">Sign in to your account</p>
+                    </div>
+                  </div>
+                  <Link
+                    to={ROUTES.LOGIN}
+                    className="px-4 py-2 bg-primary-600 text-white text-xs font-bold rounded-lg hover:bg-primary-700 transition-colors whitespace-nowrap shadow-xs"
+                    onClick={() => setIsMobileOpen(false)}
+                  >
+                    Sign In
+                  </Link>
+                </div>
+              )}
+
               {/* Mobile Search */}
               <div className="p-4 border-b border-gray-100">
                  <form onSubmit={handleSearch} className="flex items-center bg-gray-50 rounded-lg px-3 py-2">

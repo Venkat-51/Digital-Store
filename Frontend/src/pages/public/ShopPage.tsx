@@ -115,21 +115,21 @@ const ShopPage: React.FC = () => {
       <div className="bg-white border-b border-gray-100 py-8">
         <div className="container-wide">
           <Breadcrumb items={[{ label: 'Shop' }]} />
-          <div className="mt-4 flex items-center justify-between">
+          <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-black text-gray-900">All Products</h1>
+              <h1 className="text-2xl sm:text-3xl font-black text-gray-900">All Products</h1>
               {data && (
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-xs sm:text-sm text-gray-500 mt-1">
                   {data.count} {data.count === 1 ? 'product' : 'products'} found
                 </p>
               )}
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
               {/* Sort */}
               <select
                 value={ordering}
                 onChange={(e) => updateParam('ordering', e.target.value || undefined)}
-                className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 cursor-pointer"
+                className="flex-1 sm:flex-none px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border border-gray-200 text-xs sm:text-sm font-medium text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 cursor-pointer"
               >
                 <option value="">Sort by: Default</option>
                 {SORT_OPTIONS.map((opt) => (
@@ -141,9 +141,9 @@ const ShopPage: React.FC = () => {
               <Button
                 variant="outline"
                 size="sm"
-                leftIcon={<SlidersHorizontal size={16} />}
+                leftIcon={<SlidersHorizontal size={14} />}
                 onClick={() => setIsFilterOpen(true)}
-                className="lg:hidden"
+                className="lg:hidden flex-shrink-0 text-xs sm:text-sm py-2 sm:py-2.5 px-3 sm:px-4"
               >
                 Filters
               </Button>

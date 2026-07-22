@@ -2,7 +2,8 @@ from django.urls import path
 from .views import (
     CategoryListView, ProductListView, ProductImageView, ProductDetailView,
     ProductFeaturedView, ProductRelatedView, AuthRegisterView, AuthLoginView,
-    OrderCreateView, OrderDetailView
+    AuthMeView, AuthLogoutView, AuthPasswordResetView, AuthPasswordResetConfirmView,
+    AuthTokenRefreshView, OrderCreateView, OrderDetailView
 )
 
 urlpatterns = [
@@ -14,6 +15,11 @@ urlpatterns = [
     path('products/<int:product_id>/image/', ProductImageView.as_view(), name='product-image'),
     path('auth/register/', AuthRegisterView.as_view(), name='auth-register'),
     path('auth/login/', AuthLoginView.as_view(), name='auth-login'),
+    path('auth/me/', AuthMeView.as_view(), name='auth-me'),
+    path('auth/logout/', AuthLogoutView.as_view(), name='auth-logout'),
+    path('auth/password/reset/', AuthPasswordResetView.as_view(), name='auth-password-reset'),
+    path('auth/password/reset/confirm/', AuthPasswordResetConfirmView.as_view(), name='auth-password-reset-confirm'),
+    path('auth/token/refresh/', AuthTokenRefreshView.as_view(), name='auth-token-refresh'),
     path('orders/', OrderCreateView.as_view(), name='order-create'),
     path('orders/<str:order_number>/', OrderDetailView.as_view(), name='order-detail'),
 ]

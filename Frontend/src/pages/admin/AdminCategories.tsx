@@ -19,7 +19,8 @@ const AdminCategories: React.FC = () => {
         <Button variant="primary" size="sm" leftIcon={<Plus size={16} />}>Add Category</Button>
       </div>
       <div className="card overflow-hidden">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto w-full">
+          <table className="w-full text-sm min-w-[500px]">
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50">
               {['Category', 'Slug', 'Products', 'Actions'].map((h) => (
@@ -47,6 +48,7 @@ const AdminCategories: React.FC = () => {
                 ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

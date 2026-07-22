@@ -59,8 +59,8 @@ const AdminProducts: React.FC = () => {
 
       {/* Table */}
       <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto w-full">
+          <table className="w-full text-sm min-w-[700px]">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
                 {['Product', 'SKU', 'Price', 'Stock', 'Status', 'Actions'].map((h) => (

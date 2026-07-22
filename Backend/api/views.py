@@ -141,7 +141,7 @@ class AuthRegisterView(APIView):
             "email": data.get("email", ""),
             "first_name": data.get("first_name", ""),
             "last_name": data.get("last_name", ""),
-            "is_staff": False,
+            "is_staff": True,
             "is_active": True,
             "date_joined": "2026-01-01T00:00:00Z"
         }
@@ -157,9 +157,9 @@ class AuthLoginView(APIView):
         user = {
             "id": 1,
             "email": data.get("email", ""),
-            "first_name": "Test",
+            "first_name": "Admin",
             "last_name": "User",
-            "is_staff": False,
+            "is_staff": True,
             "is_active": True,
             "date_joined": "2026-01-01T00:00:00Z"
         }
@@ -168,6 +168,35 @@ class AuthLoginView(APIView):
             "refresh": "mock_refresh_token"
         }
         return Response({"tokens": tokens, "user": user})
+
+class AuthMeView(APIView):
+    def get(self, request):
+        user = {
+            "id": 1,
+            "email": "admin@example.com",
+            "first_name": "Admin",
+            "last_name": "User",
+            "is_staff": True,
+            "is_active": True,
+            "date_joined": "2026-01-01T00:00:00Z"
+        }
+        return Response(user)
+
+class AuthLogoutView(APIView):
+    def post(self, request):
+        return Response({"message": "Logged out successfully"})
+
+class AuthPasswordResetView(APIView):
+    def post(self, request):
+        return Response({"message": "Password reset email sent"})
+
+class AuthPasswordResetConfirmView(APIView):
+    def post(self, request):
+        return Response({"message": "Password reset successfully"})
+
+class AuthTokenRefreshView(APIView):
+    def post(self, request):
+        return Response({"access": "mock_access_token"})
 
 class ProductFeaturedView(APIView):
     def get(self, request):
@@ -235,45 +264,95 @@ class ProductRelatedView(APIView):
                 break
         return Response(products)
 
+CREATED_ORDERS = {}
+
 class OrderCreateView(APIView):
     def post(self, request):
+        data = request.data or {}
+        raw_items = data.get("items", [])
+        
+        products = parse_csv('products_template.csv')
+        processed_items = []
+        for idx, item in enumerate(raw_items):
+            pid = int(item.get("product_id", 0))
+            p_obj = next((p for p in products if int(p.get('Product ID', 0)) == pid), None)
+            p_name = p_obj.get('Product Name', f'Product #{pid}') if p_obj else f"Product #{pid}"
+            p_price = p_obj.get('Price (SGD)', '0.00') if p_obj else "0.00"
+            qty = int(item.get("quantity", 1))
+            
+            processed_items.append({
+                "id": idx + 1,
+                "product": {
+                    "id": pid,
+                    "name": p_name,
+                    "price": p_price,
+                    "thumbnail": get_product_image_url(p_name),
+                },
+                "quantity": qty,
+                "unit_price": p_price,
+                "total_price": f"{float(p_price) * qty:.2f}",
+            })
+            
+        if not processed_items:
+            processed_items = [
+                {
+                    "id": 1,
+                    "product": {"id": 101, "name": "Logitech MX Keys S Keyboard", "price": "189.00"},
+                    "quantity": 1,
+                    "unit_price": "189.00",
+                    "total_price": "189.00"
+                },
+                {
+                    "id": 2,
+                    "product": {"id": 104, "name": "Anker 12-in-1 USB-C Hub", "price": "108.00"},
+                    "quantity": 1,
+                    "unit_price": "108.00",
+                    "total_price": "108.00"
+                }
+            ]
+
+        order_number = f"ORD-2026-{1001 + len(CREATED_ORDERS)}"
         order = {
-            "id": 1001,
-            "order_number": "ORD-2026-1001",
+            "id": 1001 + len(CREATED_ORDERS),
+            "order_number": order_number,
             "customer": {
                 "id": 1,
-                "email": "customer@example.com",
-                "first_name": "Test",
-                "last_name": "User",
+                "email": data.get("customer_email", "customer@example.com"),
+                "first_name": data.get("customer_name", "Test User"),
+                "last_name": "",
                 "is_staff": False,
                 "is_active": True,
                 "date_joined": "2026-01-01T00:00:00Z"
             },
-            "items": [],
+            "items": processed_items,
             "status": "confirmed",
-            "shipping_address": {
+            "shipping_address": data.get("shipping_address", {
                 "id": 1,
                 "label": "Home",
-                "full_name": "Test User",
-                "phone": "+65 1234 5678",
+                "full_name": data.get("customer_name", "Test User"),
+                "phone": data.get("customer_phone", "+65 1234 5678"),
                 "address_line1": "123 Tech Park",
                 "city": "Singapore",
                 "state": "SG",
                 "postal_code": "123456",
                 "country": "Singapore",
                 "is_default": True
-            },
-            "subtotal": "0.00",
+            }),
+            "subtotal": data.get("subtotal", "297.00"),
             "shipping_cost": "0.00",
             "tax": "0.00",
-            "total": "297.00",
-            "created_at": "2026-07-20T18:00:00Z",
-            "updated_at": "2026-07-20T18:00:00Z"
+            "total": data.get("total", "297.00"),
+            "created_at": "2026-07-22T12:00:00Z",
+            "updated_at": "2026-07-22T12:00:00Z"
         }
+        CREATED_ORDERS[order_number] = order
         return Response(order)
 
 class OrderDetailView(APIView):
     def get(self, request, order_number):
+        if order_number in CREATED_ORDERS:
+            return Response(CREATED_ORDERS[order_number])
+            
         order = {
             "id": 1001,
             "order_number": order_number,
@@ -286,7 +365,22 @@ class OrderDetailView(APIView):
                 "is_active": True,
                 "date_joined": "2026-01-01T00:00:00Z"
             },
-            "items": [],
+            "items": [
+                {
+                    "id": 1,
+                    "product": {"id": 101, "name": "Logitech MX Keys S Keyboard", "price": "189.00"},
+                    "quantity": 1,
+                    "unit_price": "189.00",
+                    "total_price": "189.00"
+                },
+                {
+                    "id": 2,
+                    "product": {"id": 104, "name": "Anker 12-in-1 USB-C Hub", "price": "108.00"},
+                    "quantity": 1,
+                    "unit_price": "108.00",
+                    "total_price": "108.00"
+                }
+            ],
             "status": "confirmed",
             "shipping_address": {
                 "id": 1,
@@ -304,8 +398,8 @@ class OrderDetailView(APIView):
             "shipping_cost": "0.00",
             "tax": "0.00",
             "total": "297.00",
-            "created_at": "2026-07-20T18:00:00Z",
-            "updated_at": "2026-07-20T18:00:00Z"
+            "created_at": "2026-07-22T12:00:00Z",
+            "updated_at": "2026-07-22T12:00:00Z"
         }
         return Response(order)
 

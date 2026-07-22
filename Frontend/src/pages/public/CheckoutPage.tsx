@@ -61,6 +61,7 @@ const CheckoutPage: React.FC = () => {
       }),
     onSuccess: (order) => {
       clearCart();
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
       navigate(buildRoute.orderSuccess(order.order_number));
     },
     onError: () => toast.error('Failed to place order. Please try again.'),

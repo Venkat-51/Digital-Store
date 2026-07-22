@@ -27,16 +27,24 @@ const AdminLayout: React.FC = () => {
   if (isLoading) return <PageLoader />;
   if (!isAuthenticated || !user?.is_staff) return <Navigate to={ROUTES.LOGIN} replace />;
 
-  const SidebarContent = () => (
+  const SidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => (
     <div className="flex flex-col h-full bg-gray-900 text-gray-400 w-64">
       {/* Logo */}
-      <Link to={ROUTES.HOME} className="flex items-center gap-3 px-5 py-4 border-b border-gray-800">
-        <img
-          src="/logo-dark.png"
-          alt="Lexicon Technology Pte Ltd"
-          className="h-10 w-auto object-contain"
-        />
-        <span className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1 mt-auto mb-0.5">Admin</span>
+      <Link
+        to={ROUTES.HOME}
+        className="flex items-center justify-between px-5 py-4 border-b border-gray-800"
+        onClick={onItemClick}
+      >
+        <div className="bg-white px-3.5 py-2 rounded-2xl flex items-center justify-center shadow-xs">
+          <img
+            src="/logo.png"
+            alt="Lexicon Technology Pte Ltd"
+            className="h-7 w-auto object-contain"
+          />
+        </div>
+        <span className="text-2xs font-bold text-gray-400 uppercase tracking-widest bg-gray-800/80 px-2 py-1 rounded-md">
+          ADMIN
+        </span>
       </Link>
 
       {/* Nav */}
@@ -47,6 +55,7 @@ const AdminLayout: React.FC = () => {
             key={item.to}
             to={item.to}
             end={item.end}
+            onClick={onItemClick}
             className={({ isActive }) =>
               cn(
                 'flex items-center gap-3 px-5 py-3 text-sm font-semibold transition-all mx-2 rounded-xl mb-0.5',
@@ -74,7 +83,10 @@ const AdminLayout: React.FC = () => {
           </div>
         </div>
         <button
-          onClick={logout}
+          onClick={() => {
+            onItemClick?.();
+            logout();
+          }}
           className="flex items-center gap-2 w-full px-2 py-2 text-sm font-medium text-gray-500 hover:text-red-400 transition-colors"
         >
           <LogOut size={16} />
@@ -109,7 +121,7 @@ const AdminLayout: React.FC = () => {
               transition={{ type: 'spring', damping: 30 }}
               className="fixed inset-y-0 left-0 z-50 lg:hidden"
             >
-              <SidebarContent />
+              <SidebarContent onItemClick={() => setIsSidebarOpen(false)} />
             </motion.div>
           </>
         )}

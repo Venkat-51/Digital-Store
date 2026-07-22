@@ -35,17 +35,17 @@ const CartPage: React.FC = () => {
       <div className="bg-white border-b border-gray-100 py-8">
         <div className="container-wide">
           <Breadcrumb items={[{ label: 'Cart' }]} />
-          <div className="flex items-center justify-between mt-3">
-            <h1 className="text-3xl font-black text-gray-900">Shopping Cart ({items.length})</h1>
-            <button onClick={() => { clearCart(); toast.success('Cart cleared'); }} className="text-sm font-semibold text-danger-600 hover:text-danger-700 flex items-center gap-1.5">
+          <div className="flex items-center justify-between mt-3 gap-2">
+            <h1 className="text-2xl sm:text-3xl font-black text-gray-900">Shopping Cart ({items.length})</h1>
+            <button onClick={() => { clearCart(); toast.success('Cart cleared'); }} className="text-xs sm:text-sm font-semibold text-danger-600 hover:text-danger-700 flex items-center gap-1.5 flex-shrink-0">
               <Trash2 size={14} /> Clear Cart
             </button>
           </div>
         </div>
       </div>
 
-      <div className="container-wide py-8">
-        <div className="grid lg:grid-cols-3 gap-8">
+      <div className="container-wide py-6 sm:py-8">
+        <div className="grid lg:grid-cols-3 gap-6 sm:gap-8">
           <div className="lg:col-span-2 space-y-3">
             <AnimatePresence>
               {items.map((item) => (
@@ -55,26 +55,34 @@ const CartPage: React.FC = () => {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, x: -20, height: 0 }}
-                  className="card p-5 flex gap-4 items-start"
+                  className="card p-3 sm:p-5 flex flex-col sm:flex-row gap-3 sm:gap-4 items-start sm:items-center"
                 >
-                  <Link to={`/products/${item.product.slug}`} className="flex-shrink-0 w-24 h-24 bg-gray-50 rounded-2xl overflow-hidden">
-                    <img src={item.product.thumbnail || '/placeholder-product.png'} alt={item.product.name} className="w-full h-full object-contain p-2" />
-                  </Link>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-0.5">{item.product.brand?.name}</p>
-                    <Link to={`/products/${item.product.slug}`} className="font-bold text-gray-900 hover:text-primary-600 transition-colors line-clamp-2">{item.product.name}</Link>
-                    <p className="text-sm font-bold text-primary-600 mt-1">{formatPrice(item.unit_price)}</p>
-                  </div>
-                  <div className="flex flex-col items-end gap-4">
-                    <button onClick={() => removeItem(item.id)} className="text-gray-300 hover:text-danger-500 transition-colors">
+                  <div className="flex items-center gap-3 w-full sm:w-auto flex-1 min-w-0">
+                    <Link to={`/products/${item.product.slug}`} className="flex-shrink-0 w-16 h-16 sm:w-24 sm:h-24 bg-gray-50 rounded-xl sm:rounded-2xl overflow-hidden">
+                      <img src={item.product.thumbnail || '/placeholder-product.png'} alt={item.product.name} className="w-full h-full object-contain p-2" />
+                    </Link>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-2xs font-bold text-gray-400 uppercase tracking-widest mb-0.5">{item.product.brand?.name}</p>
+                      <Link to={`/products/${item.product.slug}`} className="text-xs sm:text-base font-bold text-gray-900 hover:text-primary-600 transition-colors line-clamp-2">{item.product.name}</Link>
+                      <p className="text-xs sm:text-sm font-bold text-primary-600 mt-0.5 sm:mt-1">{formatPrice(item.unit_price)}</p>
+                    </div>
+                    <button onClick={() => removeItem(item.id)} className="sm:hidden text-gray-300 hover:text-danger-500 transition-colors p-1">
                       <Trash2 size={16} />
                     </button>
+                  </div>
+
+                  <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-4 pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-100">
                     <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden">
-                      <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="px-3 py-2 hover:bg-gray-100 text-sm">−</button>
-                      <span className="px-4 text-sm font-bold">{item.quantity}</span>
-                      <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="px-3 py-2 hover:bg-gray-100 text-sm">+</button>
+                      <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="px-2.5 sm:px-3 py-1 sm:py-2 hover:bg-gray-100 text-xs sm:text-sm">−</button>
+                      <span className="px-3 sm:px-4 text-xs sm:text-sm font-bold">{item.quantity}</span>
+                      <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="px-2.5 sm:px-3 py-1 sm:py-2 hover:bg-gray-100 text-xs sm:text-sm">+</button>
                     </div>
-                    <p className="text-sm font-black text-gray-900">{formatPrice(item.total_price)}</p>
+                    <div className="flex items-center gap-3">
+                      <p className="text-sm sm:text-base font-black text-gray-900">{formatPrice(item.total_price)}</p>
+                      <button onClick={() => removeItem(item.id)} className="hidden sm:block text-gray-300 hover:text-danger-500 transition-colors">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </div>
                 </motion.div>
               ))}
