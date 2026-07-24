@@ -6,10 +6,10 @@ from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-FRONTEND_PUBLIC_DIR = BASE_DIR / 'Frontend' / 'public'
+DATA_DIR = BASE_DIR / "data"
 
 def parse_csv(file_name):
-    file_path = FRONTEND_PUBLIC_DIR / file_name
+    file_path = DATA_DIR / file_name
     data = []
     if not file_path.exists():
         return data
