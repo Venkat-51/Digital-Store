@@ -37,15 +37,6 @@ export const ROUTES = {
   ORDERS: '/account/orders',
   ORDER_DETAIL: '/account/orders/:orderNumber',
   WISHLIST_ACCOUNT: '/account/wishlist',
-
-  // Admin
-  ADMIN: '/admin',
-  ADMIN_PRODUCTS: '/admin/products',
-  ADMIN_CATEGORIES: '/admin/categories',
-  ADMIN_ORDERS: '/admin/orders',
-  ADMIN_CUSTOMERS: '/admin/customers',
-  ADMIN_MEDIA: '/admin/media',
-  ADMIN_SETTINGS: '/admin/settings',
 } as const;
 
 export const buildRoute = {

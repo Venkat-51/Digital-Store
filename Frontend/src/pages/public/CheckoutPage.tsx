@@ -3,11 +3,15 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate } from 'react-router-dom';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { ShoppingBag, User, Mail, Phone, Building2, MapPin, FileText, ArrowRight, Trash2 } from 'lucide-react';
 import { useCart } from '@/hooks/useCart';
+import { useAuth } from '@/hooks/useAuth';
+import { profileService } from '@/services/profile.service';
+import { QUERY_KEYS } from '@/constants/queryKeys';
 import { ordersService } from '@/services/orders.service';
+import type { Address } from '@/types/user.types';
 import { Input, Textarea } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Breadcrumb } from '@/components/ui/Navigation';
@@ -33,11 +37,43 @@ type CheckoutFormData = z.infer<typeof checkoutSchema>;
 const CheckoutPage: React.FC = () => {
   const { items, subtotal, clearCart } = useCart();
   const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
 
-  const { register, handleSubmit, formState: { errors } } = useForm<CheckoutFormData>({
+  const { data: addresses = [] } = useQuery({
+    queryKey: [QUERY_KEYS.PROFILE, 'addresses'],
+    queryFn: () => profileService.getAddresses(),
+    enabled: isAuthenticated,
+  });
+
+  const { register, handleSubmit, setValue, formState: { errors } } = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema),
     defaultValues: { city: 'Singapore', postal_code: '' },
   });
+
+  // Prefill personal details from user profile
+  React.useEffect(() => {
+    if (user) {
+      setValue('customer_name', `${user.first_name} ${user.last_name || ''}`.trim());
+      setValue('customer_email', user.email);
+      if (user.phone) {
+        setValue('customer_phone', user.phone);
+      }
+    }
+  }, [user, setValue]);
+
+  // Prefill shipping address with default saved address
+  React.useEffect(() => {
+    if (addresses.length > 0) {
+      const defaultAddr = addresses.find((a: Address) => a.is_default) || addresses[0];
+      if (defaultAddr) {
+        setValue('address_line1', defaultAddr.address_line1);
+        setValue('address_line2', defaultAddr.address_line2 || '');
+        setValue('city', defaultAddr.city);
+        setValue('state', defaultAddr.state || '');
+        setValue('postal_code', defaultAddr.postal_code);
+      }
+    }
+  }, [addresses, setValue]);
 
   const { mutate: placeOrder, isPending } = useMutation({
     mutationFn: (data: CheckoutFormData) =>
@@ -98,6 +134,46 @@ const CheckoutPage: React.FC = () => {
           <div className="grid lg:grid-cols-3 gap-8">
             {/* Form */}
             <div className="lg:col-span-2 space-y-6">
+              {/* Saved Addresses Quick Selector */}
+              {isAuthenticated && addresses.length > 0 && (
+                <div className="card p-6 border-blue-100 bg-blue-50/10">
+                  <div className="flex items-center gap-2.5 mb-4">
+                    <div className="w-8 h-8 bg-blue-100 rounded-xl flex items-center justify-center">
+                      <MapPin size={16} className="text-blue-600" />
+                    </div>
+                    <h3 className="font-bold text-gray-900 text-sm">Select a Saved Address</h3>
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    {addresses.map((addr: Address) => (
+                      <button
+                        key={addr.id}
+                        type="button"
+                        onClick={() => {
+                          setValue('customer_name', addr.full_name);
+                          setValue('customer_phone', addr.phone);
+                          setValue('address_line1', addr.address_line1);
+                          setValue('address_line2', addr.address_line2 || '');
+                          setValue('city', addr.city);
+                          setValue('state', addr.state || '');
+                          setValue('postal_code', addr.postal_code);
+                          toast.success(`Selected address: ${addr.label}`);
+                        }}
+                        className="text-left bg-white p-4 rounded-2xl border border-gray-100 hover:border-blue-500 hover:shadow-xs transition-all active:scale-98"
+                      >
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <span className="font-extrabold text-xs text-gray-900">{addr.label}</span>
+                          {addr.is_default && (
+                            <span className="text-3xs bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded-full font-extrabold border border-emerald-100 uppercase tracking-wider">Default</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-700 font-bold truncate">{addr.full_name}</p>
+                        <p className="text-[10px] text-gray-400 font-medium truncate mt-0.5">{addr.address_line1}, {addr.postal_code}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Customer Details */}
               <div className="card p-6">
                 <div className="flex items-center gap-2.5 mb-5">

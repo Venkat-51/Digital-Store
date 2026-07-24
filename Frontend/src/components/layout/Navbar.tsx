@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ShoppingCart, Heart, Search, Menu, X, ChevronDown,
+  ShoppingCart, Heart, Search, Menu, X, ChevronDown, ChevronRight,
   User, Monitor, HardDrive, Gamepad2, Wifi, Briefcase, BatteryCharging,
-  LogOut, Settings, LayoutDashboard, Package
+  LogOut, Settings, LayoutDashboard, Package, CheckCircle, Compass
 } from 'lucide-react';
 import { cn } from '@/utils/helpers';
 import { useCart } from '@/hooks/useCart';
@@ -27,6 +27,7 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [isMegaOpen, setIsMegaOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   
@@ -60,6 +61,7 @@ const Navbar: React.FC = () => {
     if (query.trim()) {
       navigate(`${ROUTES.SEARCH}?q=${encodeURIComponent(query.trim())}${searchCategory !== 'All' ? `&category=${searchCategory}` : ''}`);
       setQuery('');
+      setIsMobileSearchOpen(false);
     }
   };
 
@@ -74,7 +76,7 @@ const Navbar: React.FC = () => {
       <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm flex flex-col">
 
         {/* MAIN HEADER */}
-        <div className="w-full container-wide px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3 sm:gap-6">
+        <div className="w-full container-wide px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-6">
           {/* Logo */}
           <Link to={ROUTES.HOME} className="flex-shrink-0 flex items-center h-8 sm:h-10">
             <img
@@ -84,31 +86,9 @@ const Navbar: React.FC = () => {
             />
           </Link>
 
-          {/* Search Bar */}
+          {/* Search Bar - Desktop */}
           <div className="hidden lg:flex flex-1 max-w-2xl relative z-20">
             <form onSubmit={handleSearch} className="flex w-full border-2 border-primary-900 rounded-lg overflow-visible">
-              {/* Category Dropdown inside Search */}
-              <div className="relative border-r border-gray-200 bg-gray-50 rounded-l-md">
-                <button
-                  type="button"
-                  className="px-4 py-3 text-sm text-gray-700 flex items-center gap-2 hover:bg-gray-100"
-                  onClick={() => setIsSearchCatOpen(!isSearchCatOpen)}
-                >
-                  <span className="max-w-[100px] truncate">{searchCategory}</span>
-                  <ChevronDown size={14} />
-                </button>
-                <AnimatePresence>
-                  {isSearchCatOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 5 }}
-                      className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-100 shadow-xl rounded-lg py-1 z-50"
-                    >
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
 
               {/* Input */}
               <input
@@ -152,11 +132,11 @@ const Navbar: React.FC = () => {
             )}
           </div>
 
-          {/* Right Actions (Account, Wishlist, Cart) */}
-          <div className="flex items-center gap-3 sm:gap-5 lg:gap-8 ml-auto">
+          {/* Desktop Right Actions (Account, Wishlist, Cart) */}
+          <div className="hidden lg:flex items-center gap-3 sm:gap-5 lg:gap-8 ml-auto">
             
             {/* Auth Menu */}
-            <div className="hidden lg:flex items-center gap-2 relative">
+            <div className="flex items-center gap-2 relative">
                {isAuthenticated ? (
                   <div className="relative">
                     <button
@@ -182,22 +162,7 @@ const Navbar: React.FC = () => {
                             <p className="text-sm font-bold">{user?.first_name} {user?.last_name}</p>
                             <p className="text-xs text-gray-500">{user?.email}</p>
                           </div>
-                          {[
-                            { to: ROUTES.DASHBOARD, icon: <LayoutDashboard size={16} />, label: 'Dashboard' },
-                            { to: ROUTES.PROFILE, icon: <User size={16} />, label: 'Profile' },
-                            { to: ROUTES.ORDERS, icon: <Package size={16} />, label: 'Orders' },
-                            ...(user?.is_staff ? [{ to: ROUTES.ADMIN, icon: <Settings size={16} />, label: 'Admin Panel' }] : []),
-                          ].map((item) => (
-                            <Link
-                              key={item.to}
-                              to={item.to}
-                              className="flex items-center gap-3 px-4 py-2 text-sm hover:bg-gray-50"
-                              onClick={() => setIsProfileOpen(false)}
-                            >
-                              <span className="text-gray-400">{item.icon}</span>
-                              {item.label}
-                            </Link>
-                          ))}
+
                           <button
                             onClick={handleLogout}
                             className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 mt-1 border-t border-gray-100"
@@ -220,7 +185,7 @@ const Navbar: React.FC = () => {
             </div>
 
             {/* Wishlist */}
-            <Link to={ROUTES.WISHLIST} className="relative hidden lg:flex items-center justify-center hover:opacity-80">
+            <Link to={ROUTES.WISHLIST} className="relative flex items-center justify-center hover:opacity-80">
                <Heart size={24} className="text-gray-700" />
                <span className="absolute -top-1.5 -right-2 w-5 h-5 bg-yellow-400 text-gray-900 text-xs font-bold rounded-full flex items-center justify-center border border-white">
                  {wishlistCount}
@@ -239,22 +204,129 @@ const Navbar: React.FC = () => {
                    {itemCount}
                  </span>
                </div>
-               <div className="hidden lg:block text-left leading-tight">
+               <div className="text-left leading-tight">
                  <p className="text-xs text-gray-500">Total</p>
                  <p className="text-sm font-bold text-gray-900">${subtotal}</p>
                </div>
             </button>
+          </div>
 
-            {/* Mobile Menu Toggle */}
+          {/* Mobile Right Actions (Pill action group: Search, Wishlist, Cart + Hamburger Menu) */}
+          <div className="flex lg:hidden items-center gap-2 ml-auto">
+            {/* Pill Box Action Group */}
+            <div className="bg-gray-50 border border-gray-200/90 rounded-xl px-2.5 py-1 flex items-center gap-2.5 shadow-2xs">
+              {/* Search Toggle Icon */}
+              <button
+                onClick={() => setIsMobileSearchOpen((prev) => !prev)}
+                className="p-1 text-gray-700 hover:text-primary-600 active:scale-95 transition-all"
+                aria-label="Search"
+              >
+                <Search size={19} />
+              </button>
+
+              {/* Divider */}
+              <div className="w-[1px] h-3.5 bg-gray-200" />
+
+              {/* Wishlist Icon */}
+              <Link
+                to={ROUTES.WISHLIST}
+                className="relative p-1 text-gray-700 hover:text-primary-600 active:scale-95 transition-all flex items-center justify-center"
+                aria-label="Wishlist"
+              >
+                <Heart size={19} />
+                {wishlistCount > 0 && (
+                  <span className="absolute -top-1.5 -right-2 bg-yellow-400 text-gray-900 text-[9px] font-black rounded-full w-3.5 h-3.5 flex items-center justify-center border border-white">
+                    {wishlistCount > 9 ? '9+' : wishlistCount}
+                  </span>
+                )}
+              </Link>
+
+              {/* Divider */}
+              <div className="w-[1px] h-3.5 bg-gray-200" />
+
+              {/* Cart Icon */}
+              <button
+                onClick={openCart}
+                className="relative p-1 text-gray-700 hover:text-primary-600 active:scale-95 transition-all flex items-center justify-center"
+                aria-label="Shopping Cart"
+              >
+                <ShoppingCart size={19} />
+                {itemCount > 0 && (
+                  <span className="absolute -top-1.5 -right-2 bg-yellow-400 text-gray-900 text-[9px] font-black rounded-full w-3.5 h-3.5 flex items-center justify-center border border-white shadow-2xs">
+                    {itemCount > 99 ? '99+' : itemCount}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Hamburger Menu Toggle Button */}
             <button
-              onClick={() => setIsMobileOpen((p) => !p)}
-              className="lg:hidden p-2 -mr-2 text-gray-700 hover:bg-gray-100 rounded-lg flex items-center justify-center transition-colors"
+              onClick={() => setIsMobileOpen((prev) => !prev)}
+              className="p-1.5 text-gray-700 hover:bg-gray-100 rounded-lg flex items-center justify-center transition-colors active:scale-95 ml-0.5"
               aria-label="Toggle Menu"
             >
-              {isMobileOpen ? <X size={24} /> : <Menu size={24} />}
+              {isMobileOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
           </div>
         </div>
+
+        {/* Mobile Search Bar Dropdown Overlay */}
+        <AnimatePresence>
+          {isMobileSearchOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="lg:hidden border-t border-gray-100 bg-white px-4 py-2.5 shadow-md overflow-hidden"
+            >
+              <form onSubmit={handleSearch} className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
+                <Search size={18} className="text-gray-400 flex-shrink-0" />
+                <input
+                  ref={searchRef}
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search products..."
+                  className="bg-transparent flex-1 outline-none text-sm text-gray-900 placeholder:text-gray-400"
+                  autoFocus
+                />
+                {query && (
+                  <button type="button" onClick={() => setQuery('')} className="text-gray-400 hover:text-gray-600 p-0.5">
+                    <X size={16} />
+                  </button>
+                )}
+                <button type="submit" className="bg-primary-900 text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-primary-800 transition-colors">
+                  Search
+                </button>
+              </form>
+
+              {/* Mobile Search Live Results */}
+              {query && !isSearchLoading && results.length > 0 && (
+                <div className="mt-2 bg-white rounded-xl border border-gray-100 shadow-xl max-h-60 overflow-y-auto">
+                  {results.slice(0, 5).map((p) => (
+                    <Link
+                      key={p.id}
+                      to={`/products/${p.slug}`}
+                      className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 border-b border-gray-50 last:border-0"
+                      onClick={() => {
+                        setQuery('');
+                        setIsMobileSearchOpen(false);
+                      }}
+                    >
+                      <div className="w-9 h-9 bg-gray-100 rounded-md flex-shrink-0 overflow-hidden">
+                        <img src={p.thumbnail || '/placeholder-product.png'} alt={p.name} className="w-full h-full object-cover" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold text-gray-900 truncate">{p.name}</p>
+                        <p className="text-xs text-primary-600 font-bold">${parseFloat(p.price).toFixed(2)}</p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* BOTTOM NAVIGATION BAR */}
         <div className="hidden lg:block border-t border-gray-100">
@@ -301,12 +373,14 @@ const Navbar: React.FC = () => {
             <nav className="flex items-center gap-6 px-8 flex-1">
               {[
                 { label: 'Shop', to: ROUTES.SHOP },
-                { label: 'About Us', to: ROUTES.ABOUT },
+                { label: 'About', to: ROUTES.ABOUT },
                 { label: 'Wholesale', to: ROUTES.WHOLESALE },
-                { label: 'Trade In', to: ROUTES.TRADE_IN },
                 { label: 'Laptop Service', to: ROUTES.LAPTOP_SERVICE },
-                { label: 'Donate', to: ROUTES.DONATE },
                 { label: 'Contact', to: ROUTES.CONTACT },
+                ...(isAuthenticated ? [
+                  { label: 'Profile', to: ROUTES.PROFILE },
+                  { label: 'Orders', to: ROUTES.ORDERS }
+                ] : [])
               ].map(link => (
                 <NavLink
                   key={link.to}
@@ -343,7 +417,7 @@ const Navbar: React.FC = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+              className="fixed inset-0 z-40 bg-black/40 lg:hidden backdrop-blur-xs"
               onClick={() => setIsMobileOpen(false)}
             />
             <motion.div
@@ -351,131 +425,164 @@ const Navbar: React.FC = () => {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="fixed top-0 right-0 z-50 h-full w-4/5 max-w-sm bg-white shadow-2xl lg:hidden flex flex-col overflow-y-auto"
+              className="fixed top-0 right-0 z-50 h-full w-[85%] max-w-sm bg-white shadow-2xl lg:hidden flex flex-col overflow-y-auto"
             >
-              <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-                <img src="/logo.png" alt="Logo" className="h-8" />
-                <button onClick={() => setIsMobileOpen(false)}>
-                  <X size={24} className="text-gray-500" />
+              {/* Drawer Header */}
+              <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+                <h2 className="text-2xl font-bold font-serif text-gray-900 tracking-tight">Menu</h2>
+                <button
+                  onClick={() => setIsMobileOpen(false)}
+                  className="p-1.5 text-gray-500 hover:text-gray-900 rounded-full hover:bg-gray-100 transition-colors"
+                  aria-label="Close menu"
+                >
+                  <X size={20} />
                 </button>
               </div>
 
-              {/* Mobile Auth / Sign In Section */}
+              {/* Mobile Auth Status Banner & User Account Options */}
               {isAuthenticated ? (
-                <div className="p-4 border-b border-gray-100 bg-primary-50/50">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 bg-primary-600 text-white rounded-full flex items-center justify-center font-bold">
-                      {user?.first_name?.[0]?.toUpperCase() || <User size={20} />}
+                <div className="border-b border-gray-100 bg-gray-50/70 p-4">
+                  <div className="flex items-center gap-2.5 min-w-0 mb-3 px-1">
+                    <div className="w-8 h-8 bg-slate-950 text-white rounded-full flex items-center justify-center text-xs font-extrabold flex-shrink-0 shadow-2xs">
+                      {user?.first_name?.[0]?.toUpperCase() || <User size={14} />}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs text-gray-500 font-medium">Signed in as</p>
-                      <p className="text-sm font-bold text-gray-900 truncate">{user?.first_name} {user?.last_name}</p>
+                      <p className="text-xs font-black text-gray-900 truncate">{user?.first_name} {user?.last_name}</p>
+                      <p className="text-[10px] text-gray-500 truncate">{user?.email}</p>
                     </div>
                   </div>
+
                   <div className="grid grid-cols-2 gap-2 text-xs font-semibold">
-                    <Link
-                      to={ROUTES.DASHBOARD}
-                      className="flex items-center justify-center gap-1.5 py-2 bg-white rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50"
-                      onClick={() => setIsMobileOpen(false)}
-                    >
-                      <LayoutDashboard size={14} /> Dashboard
-                    </Link>
-                    <Link
-                      to={ROUTES.ORDERS}
-                      className="flex items-center justify-center gap-1.5 py-2 bg-white rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50"
-                      onClick={() => setIsMobileOpen(false)}
-                    >
-                      <Package size={14} /> Orders
-                    </Link>
-                    {user?.is_staff && (
-                      <Link
-                        to={ROUTES.ADMIN}
-                        className="col-span-2 flex items-center justify-center gap-1.5 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 shadow-xs"
-                        onClick={() => setIsMobileOpen(false)}
-                      >
-                        <Settings size={14} /> Admin Panel
-                      </Link>
-                    )}
+
+
                     <button
                       onClick={() => {
                         handleLogout();
                         setIsMobileOpen(false);
                       }}
-                      className="col-span-2 flex items-center justify-center gap-1.5 py-2 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                      className="flex items-center gap-2 px-3 py-2 bg-red-50 text-red-600 border border-red-100 rounded-xl hover:bg-red-100 transition-colors shadow-2xs"
                     >
-                      <LogOut size={14} /> Sign Out
+                      <LogOut size={14} className="flex-shrink-0" />
+                      <span>Sign Out</span>
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="p-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center flex-shrink-0">
-                      <User size={20} />
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 font-medium">Welcome to Lexicon</p>
-                      <p className="text-sm font-bold text-gray-900">Sign in to your account</p>
-                    </div>
+                <div className="px-6 py-3.5 bg-gray-50/80 border-b border-gray-100 flex items-center justify-between">
+                  <div className="flex items-center justify-between w-full">
+                    <span className="text-xs font-semibold text-gray-500">Welcome to Lexicon</span>
+                    <Link
+                      to={ROUTES.LOGIN}
+                      className="text-xs font-bold bg-primary-600 text-white px-3.5 py-1.5 rounded-lg hover:bg-primary-700 transition-colors shadow-2xs"
+                      onClick={() => setIsMobileOpen(false)}
+                    >
+                      Sign In →
+                    </Link>
                   </div>
-                  <Link
-                    to={ROUTES.LOGIN}
-                    className="px-4 py-2 bg-primary-600 text-white text-xs font-bold rounded-lg hover:bg-primary-700 transition-colors whitespace-nowrap shadow-xs"
-                    onClick={() => setIsMobileOpen(false)}
-                  >
-                    Sign In
-                  </Link>
                 </div>
               )}
 
-              {/* Mobile Search */}
-              <div className="p-4 border-b border-gray-100">
-                 <form onSubmit={handleSearch} className="flex items-center bg-gray-50 rounded-lg px-3 py-2">
-                   <Search size={18} className="text-gray-400" />
-                   <input
-                     type="search"
-                     value={query}
-                     onChange={(e) => setQuery(e.target.value)}
-                     placeholder="Search products..."
-                     className="bg-transparent flex-1 outline-none px-2 text-sm"
-                   />
-                 </form>
-              </div>
-
-              <div className="p-4 flex flex-col gap-4">
+              {/* Primary Navigation Links */}
+              <div className="px-5 py-4 flex flex-col gap-1.5">
                 {[
                   { to: ROUTES.HOME, label: 'Home' },
-                  { to: ROUTES.SHOP, label: 'Shop' },
-                  { to: ROUTES.ABOUT, label: 'About Us' },
-                  { to: ROUTES.WHOLESALE, label: 'Wholesale' },
-                  { to: ROUTES.TRADE_IN, label: 'Trade In' },
-                  { to: ROUTES.LAPTOP_SERVICE, label: 'Laptop Service' },
-                  { to: ROUTES.DONATE, label: 'Donate' },
+                  { to: ROUTES.SHOP, label: 'Products' },
+                  { to: ROUTES.ABOUT, label: 'About' },
                   { to: ROUTES.CONTACT, label: 'Contact' },
+                  ...(isAuthenticated ? [
+                    { to: ROUTES.PROFILE, label: 'Profile' },
+                    { to: ROUTES.ORDERS, label: 'Orders' }
+                  ] : [])
                 ].map((item) => (
                   <NavLink
                     key={item.to}
                     to={item.to}
-                    className="text-base font-semibold text-gray-800"
+                    end={item.to === ROUTES.HOME}
                     onClick={() => setIsMobileOpen(false)}
                   >
-                    {item.label}
+                    {({ isActive }) => (
+                      <div
+                        className={cn(
+                          "flex items-center justify-between px-4 py-3 rounded-2xl font-bold transition-all text-base",
+                          isActive
+                            ? "bg-slate-950 text-white shadow-xs"
+                            : "text-gray-900 hover:bg-gray-50"
+                        )}
+                      >
+                        <span>{item.label}</span>
+                        {isActive ? (
+                          <CheckCircle size={18} className="text-white flex-shrink-0" />
+                        ) : (
+                          <ChevronRight size={18} className="text-gray-400 flex-shrink-0" />
+                        )}
+                      </div>
+                    )}
                   </NavLink>
                 ))}
               </div>
 
-              <div className="border-t border-gray-100 p-4">
-                <p className="text-xs font-bold text-gray-400 uppercase mb-4">Categories</p>
-                <div className="flex flex-col gap-3">
-                  {NAV_CATEGORIES.map((cat) => (
+              {/* Divider */}
+              <div className="border-t border-gray-100 my-1 mx-6" />
+
+              {/* Secondary Navigation Links */}
+              <div className="px-5 py-2 flex flex-col gap-1">
+                <NavLink
+                  to={ROUTES.ORDER_TRACKING}
+                  onClick={() => setIsMobileOpen(false)}
+                  className={({ isActive }) =>
+                    cn(
+                      "flex items-center justify-between px-4 py-3 rounded-2xl font-bold transition-all text-sm",
+                      isActive ? "bg-slate-950 text-white" : "text-gray-800 hover:bg-gray-50"
+                    )
+                  }
+                >
+                  <div className="flex items-center gap-3">
+                    <Compass size={19} className="text-gray-800" />
+                    <span className="font-semibold text-gray-900">Track Order</span>
+                  </div>
+                  <ChevronRight size={18} className="text-gray-400 flex-shrink-0" />
+                </NavLink>
+
+                <NavLink
+                  to={ROUTES.WHOLESALE}
+                  onClick={() => setIsMobileOpen(false)}
+                  className="flex items-center justify-between px-4 py-3 rounded-2xl font-semibold text-gray-800 hover:bg-gray-50 transition-all text-sm"
+                >
+                  <span className="text-gray-900">Quality Promise</span>
+                  <ChevronRight size={18} className="text-gray-400 flex-shrink-0" />
+                </NavLink>
+
+                <NavLink
+                  to={ROUTES.LAPTOP_SERVICE}
+                  onClick={() => setIsMobileOpen(false)}
+                  className="flex items-center justify-between px-4 py-3 rounded-2xl font-semibold text-gray-800 hover:bg-gray-50 transition-all text-sm"
+                >
+                  <span className="text-gray-900">Store Locator</span>
+                  <ChevronRight size={18} className="text-gray-400 flex-shrink-0" />
+                </NavLink>
+
+                <NavLink
+                  to={ROUTES.TRADE_IN}
+                  onClick={() => setIsMobileOpen(false)}
+                  className="flex items-center justify-between px-4 py-3 rounded-2xl font-semibold text-gray-800 hover:bg-gray-50 transition-all text-sm"
+                >
+                  <span className="text-gray-900">B2B / Bulk</span>
+                  <ChevronRight size={18} className="text-gray-400 flex-shrink-0" />
+                </NavLink>
+              </div>
+
+              {/* Bottom Quick Categories / Help section */}
+              <div className="mt-auto border-t border-gray-100 p-5 bg-gray-50/50">
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Categories</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {NAV_CATEGORIES.slice(0, 4).map((cat) => (
                     <Link
                       key={cat.slug}
                       to={`/categories/${cat.slug}`}
-                      className="flex items-center gap-3 text-sm text-gray-600"
+                      className="text-xs font-medium text-gray-600 hover:text-primary-600 truncate py-0.5"
                       onClick={() => setIsMobileOpen(false)}
                     >
-                      <span className="text-gray-400">{CATEGORY_ICONS[cat.slug]}</span>
-                      {cat.name}
+                      • {cat.name}
                     </Link>
                   ))}
                 </div>

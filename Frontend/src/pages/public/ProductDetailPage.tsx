@@ -25,7 +25,7 @@ const ProductDetailPage: React.FC = () => {
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
-  const [activeTab, setActiveTab] = useState<'description' | 'specs'>('description');
+  const [activeTab, setActiveTab] = useState<'specs' | 'description'>('specs');
 
   const { data: imageData, isLoading: isImageLoading } = useProductImage(product?.id ?? 0);
 
@@ -145,32 +145,32 @@ const ProductDetailPage: React.FC = () => {
 
           {/* Product Info */}
           <div>
-            <p className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-2">{product.brand?.name}</p>
-            <h1 className="text-3xl font-black text-gray-900 mb-4 leading-tight">{product.name}</h1>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">{product.brand?.name}</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3 leading-snug">{product.name}</h1>
             
             {/* Rating */}
             {product.rating && (
-              <div className="flex items-center gap-2 mb-4">
+              <div className="flex items-center gap-2 mb-3">
                 <div className="flex">
                   {[...Array(5)].map((_, i) => (
                     <Star
                       key={i}
-                      size={16}
+                      size={15}
                       className={cn('transition-colors', i < Math.round(product.rating!) ? 'text-secondary-500 fill-current' : 'text-gray-300')}
                     />
                   ))}
                 </div>
-                <span className="text-sm font-semibold text-gray-700">{product.rating.toFixed(1)}</span>
-                <span className="text-sm text-gray-400">({product.review_count} reviews)</span>
+                <span className="text-xs font-semibold text-gray-700">{product.rating.toFixed(1)}</span>
+                <span className="text-xs text-gray-400">({product.review_count} reviews)</span>
               </div>
             )}
 
             {/* Price */}
-            <div className="flex items-center gap-3 mb-6">
-              <span className="text-4xl font-black text-gray-900">{formatPrice(product.price)}</span>
+            <div className="flex items-baseline gap-2.5 mb-5">
+              <span className="text-2xl sm:text-3xl font-extrabold text-gray-900">{formatPrice(product.price)}</span>
               {product.compare_price && parseFloat(product.compare_price) > parseFloat(product.price) && (
                 <>
-                  <span className="text-xl text-gray-400 line-through">{formatPrice(product.compare_price)}</span>
+                  <span className="text-base text-gray-400 line-through">{formatPrice(product.compare_price)}</span>
                   <Badge variant="sale">Save {discount}%</Badge>
                 </>
               )}
@@ -254,10 +254,10 @@ const ProductDetailPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Tabs — Description / Specs */}
+        {/* Tabs — Specs / Description */}
         <div className="mb-16">
           <div className="flex gap-1 border-b border-gray-100 mb-6">
-            {(['description', 'specs'] as const).map((tab) => (
+            {(['specs', 'description'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -274,11 +274,7 @@ const ProductDetailPage: React.FC = () => {
           </div>
 
           <AnimatePresence mode="wait">
-            {activeTab === 'description' ? (
-              <motion.div key="desc" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <p className="text-gray-600 leading-relaxed">{product.description}</p>
-              </motion.div>
-            ) : (
+            {activeTab === 'specs' ? (
               <motion.div key="specs" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 {product.specifications && product.specifications.length > 0 ? (
                   <table className="w-full text-sm">
@@ -294,6 +290,10 @@ const ProductDetailPage: React.FC = () => {
                 ) : (
                   <p className="text-gray-500 text-sm">No specifications available.</p>
                 )}
+              </motion.div>
+            ) : (
+              <motion.div key="desc" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <p className="text-gray-600 leading-relaxed">{product.description || 'No description available for this product.'}</p>
               </motion.div>
             )}
           </AnimatePresence>

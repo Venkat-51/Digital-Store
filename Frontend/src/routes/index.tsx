@@ -1,13 +1,11 @@
 import React, { lazy, Suspense } from 'react';
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 import { PageLoader } from '@/components/ui/Loader';
-import { ROUTES } from '@/constants/routes';
 
 // Layouts
 import RootLayout from '@/layouts/RootLayout';
 import AuthLayout from '@/layouts/AuthLayout';
 import CustomerLayout from '@/layouts/CustomerLayout';
-import AdminLayout from '@/layouts/AdminLayout';
 
 // Lazy-loaded pages — Public
 const HomePage          = lazy(() => import('@/pages/public/HomePage'));
@@ -31,16 +29,9 @@ const RegisterPage      = lazy(() => import('@/pages/auth/RegisterPage'));
 const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage'));
 
 // Customer
-const CustomerDashboard = lazy(() => import('@/pages/customer/CustomerDashboard'));
 const ProfilePage       = lazy(() => import('@/pages/customer/ProfilePage'));
 const OrdersPage        = lazy(() => import('@/pages/customer/OrdersPage'));
-
-// Admin
-const AdminDashboard    = lazy(() => import('@/pages/admin/AdminDashboard'));
-const AdminProducts     = lazy(() => import('@/pages/admin/AdminProducts'));
-const AdminCategories   = lazy(() => import('@/pages/admin/AdminCategories'));
-const AdminOrders       = lazy(() => import('@/pages/admin/AdminOrders'));
-const AdminCustomers    = lazy(() => import('@/pages/admin/AdminCustomers'));
+const SavedAddressesPage = lazy(() => import('@/pages/customer/SavedAddressesPage'));
 
 const Wrap: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <Suspense fallback={<PageLoader />}>{children}</Suspense>
@@ -71,6 +62,18 @@ const router = createBrowserRouter([
       { path: 'laptop-service',       element: <Wrap><ContactPage /></Wrap> },
       { path: 'donate',               element: <Wrap><ContactPage /></Wrap> },
       { path: 'order-tracking',       element: <Wrap><ContactPage /></Wrap> },
+      {
+        path: 'account',
+        element: <CustomerLayout />,
+        children: [
+          { index: true,        element: <Wrap><ProfilePage /></Wrap> },
+          { path: 'profile',    element: <Wrap><ProfilePage /></Wrap> },
+          { path: 'orders',     element: <Wrap><OrdersPage /></Wrap> },
+          { path: 'orders/:orderNumber', element: <Wrap><OrdersPage /></Wrap> },
+          { path: 'addresses',  element: <Wrap><SavedAddressesPage /></Wrap> },
+          { path: 'wishlist',   element: <Wrap><WishlistPage /></Wrap> },
+        ],
+      },
     ],
   },
   {
@@ -80,31 +83,6 @@ const router = createBrowserRouter([
       { path: 'login',           element: <Wrap><LoginPage /></Wrap> },
       { path: 'register',        element: <Wrap><RegisterPage /></Wrap> },
       { path: 'forgot-password', element: <Wrap><ForgotPasswordPage /></Wrap> },
-    ],
-  },
-  {
-    path: '/account',
-    element: <CustomerLayout />,
-    children: [
-      { index: true,        element: <Wrap><CustomerDashboard /></Wrap> },
-      { path: 'profile',    element: <Wrap><ProfilePage /></Wrap> },
-      { path: 'orders',     element: <Wrap><OrdersPage /></Wrap> },
-      { path: 'orders/:orderNumber', element: <Wrap><OrdersPage /></Wrap> },
-      { path: 'addresses',  element: <Wrap><ProfilePage /></Wrap> },
-      { path: 'wishlist',   element: <Wrap><WishlistPage /></Wrap> },
-    ],
-  },
-  {
-    path: '/admin',
-    element: <AdminLayout />,
-    children: [
-      { index: true,        element: <Wrap><AdminDashboard /></Wrap> },
-      { path: 'products',   element: <Wrap><AdminProducts /></Wrap> },
-      { path: 'categories', element: <Wrap><AdminCategories /></Wrap> },
-      { path: 'orders',     element: <Wrap><AdminOrders /></Wrap> },
-      { path: 'customers',  element: <Wrap><AdminCustomers /></Wrap> },
-      { path: 'media',      element: <Wrap><AdminDashboard /></Wrap> },
-      { path: 'settings',   element: <Wrap><AdminDashboard /></Wrap> },
     ],
   },
   { path: '*', element: <Navigate to="/" replace /> },

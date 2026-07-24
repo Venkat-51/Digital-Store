@@ -3,7 +3,8 @@ from .views import (
     CategoryListView, ProductListView, ProductImageView, ProductDetailView,
     ProductFeaturedView, ProductRelatedView, AuthRegisterView, AuthLoginView,
     AuthMeView, AuthLogoutView, AuthPasswordResetView, AuthPasswordResetConfirmView,
-    AuthTokenRefreshView, OrderCreateView, OrderDetailView
+    AuthTokenRefreshView, OrderCreateView, OrderDetailView, OrderInvoiceView,
+    AddressListView, AddressDetailView, AddressSetDefaultView
 )
 
 urlpatterns = [
@@ -22,4 +23,8 @@ urlpatterns = [
     path('auth/token/refresh/', AuthTokenRefreshView.as_view(), name='auth-token-refresh'),
     path('orders/', OrderCreateView.as_view(), name='order-create'),
     path('orders/<str:order_number>/', OrderDetailView.as_view(), name='order-detail'),
+    path('orders/<str:order_number>/invoice/', OrderInvoiceView.as_view(), name='order-invoice'),
+    path('addresses/', AddressListView.as_view(), name='address-list'),
+    path('addresses/<int:pk>/', AddressDetailView.as_view(), name='address-detail'),
+    path('addresses/<int:pk>/set-default/', AddressSetDefaultView.as_view(), name='address-set-default'),
 ]

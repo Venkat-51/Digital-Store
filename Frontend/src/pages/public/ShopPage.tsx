@@ -42,6 +42,29 @@ const ShopPage: React.FC = () => {
 
   const { data, isLoading, error } = useProducts(filters);
 
+  const currentMin = minPrice ? Number(minPrice) : undefined;
+  const currentMax = maxPrice ? Number(maxPrice) : undefined;
+
+  const isRangeActive = (range: typeof PRICE_RANGES[0]) => {
+    return range.min === currentMin && range.max === currentMax;
+  };
+
+  const handlePriceRangeClick = (range: typeof PRICE_RANGES[0]) => {
+    const params = new URLSearchParams(searchParams);
+    if (range.min !== undefined) {
+      params.set('min_price', String(range.min));
+    } else {
+      params.delete('min_price');
+    }
+    if (range.max !== undefined) {
+      params.set('max_price', String(range.max));
+    } else {
+      params.delete('max_price');
+    }
+    params.delete('page');
+    setSearchParams(params);
+  };
+
   const updateParam = (key: string, value: string | undefined) => {
     const params = new URLSearchParams(searchParams);
     if (value) params.set(key, value);
@@ -50,17 +73,52 @@ const ShopPage: React.FC = () => {
     setSearchParams(params);
   };
 
-  const clearFilters = () => setSearchParams({});
+  const clearFilters = () => {
+    const params = new URLSearchParams();
+    if (ordering) params.set('ordering', ordering);
+    setSearchParams(params);
+  };
 
-  const totalPages = data ? Math.ceil(data.count / CONFIG.PRODUCTS_PER_PAGE) : 0;
-  const hasFilters = !!(ordering || category || minPrice || maxPrice || inStock);
+  const rawProducts = data?.results ?? [];
+
+  const displayProducts = React.useMemo(() => {
+    let list = [...rawProducts];
+
+    if (minPrice) {
+      const minP = Number(minPrice);
+      list = list.filter((p) => parseFloat(p.price) >= minP);
+    }
+    if (maxPrice) {
+      const maxP = Number(maxPrice);
+      list = list.filter((p) => parseFloat(p.price) <= maxP);
+    }
+    if (inStock === 'true') {
+      list = list.filter((p) => p.is_in_stock || p.stock > 0);
+    }
+    if (category && category.toLowerCase() !== 'all') {
+      const catLower = category.toLowerCase();
+      list = list.filter(
+        (p) =>
+          p.category?.slug.toLowerCase() === catLower ||
+          p.category?.name.toLowerCase() === catLower
+      );
+    }
+
+    return list;
+  }, [rawProducts, minPrice, maxPrice, inStock, category]);
+
+  const totalPages = Math.max(1, Math.ceil(displayProducts.length / CONFIG.PRODUCTS_PER_PAGE));
+  const hasFilters = !!(category || minPrice || maxPrice || inStock === 'true');
 
   const FilterSidebar = () => (
-    <aside className="w-64 flex-shrink-0 space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-base font-bold text-gray-900">Filters</h2>
+    <aside className="w-full space-y-6">
+      <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+        <h2 className="text-base font-extrabold text-gray-900">Filters</h2>
         {hasFilters && (
-          <button onClick={clearFilters} className="text-xs text-primary-600 font-semibold hover:text-primary-700">
+          <button
+            onClick={clearFilters}
+            className="text-xs font-semibold text-primary-600 hover:text-primary-700 transition-colors"
+          >
             Clear all
           </button>
         )}
@@ -68,25 +126,23 @@ const ShopPage: React.FC = () => {
 
       {/* Price Range */}
       <div>
-        <h3 className="text-sm font-bold text-gray-700 mb-3">Price Range</h3>
-        <div className="space-y-2">
+        <h3 className="text-sm font-bold text-gray-900 mb-3">Price Range</h3>
+        <div className="space-y-1">
           {PRICE_RANGES.map((range) => {
-            const isSelected =
-              (minPrice === String(range.min ?? '')) &&
-              (maxPrice === String(range.max ?? ''));
+            const active = isRangeActive(range);
             return (
               <button
                 key={range.label}
-                onClick={() => {
-                  updateParam('min_price', range.min !== undefined ? String(range.min) : undefined);
-                  updateParam('max_price', range.max !== undefined ? String(range.max) : undefined);
-                }}
+                onClick={() => handlePriceRangeClick(range)}
                 className={cn(
-                  'w-full text-left text-sm py-2 px-3 rounded-xl transition-colors font-medium',
-                  isSelected ? 'bg-primary-100 text-primary-700' : 'text-gray-600 hover:bg-gray-100',
+                  'w-full text-left text-sm py-2.5 px-3.5 rounded-xl transition-all font-medium flex items-center justify-between',
+                  active
+                    ? 'bg-primary-50 text-primary-700 font-bold shadow-2xs'
+                    : 'text-gray-700 hover:bg-gray-100/80 hover:text-gray-900',
                 )}
               >
-                {range.label}
+                <span>{range.label}</span>
+                {active && <span className="w-2 h-2 rounded-full bg-primary-600" />}
               </button>
             );
           })}
@@ -94,16 +150,16 @@ const ShopPage: React.FC = () => {
       </div>
 
       {/* Availability */}
-      <div>
-        <h3 className="text-sm font-bold text-gray-700 mb-3">Availability</h3>
-        <label className="flex items-center gap-3 cursor-pointer">
+      <div className="pt-2 border-t border-gray-100">
+        <h3 className="text-sm font-bold text-gray-900 mb-3">Availability</h3>
+        <label className="flex items-center gap-3 cursor-pointer py-1.5 px-1 select-none">
           <input
             type="checkbox"
             checked={inStock === 'true'}
             onChange={(e) => updateParam('in_stock', e.target.checked ? 'true' : undefined)}
-            className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
+            className="w-4 h-4 text-primary-600 rounded border-gray-300 focus:ring-primary-500 cursor-pointer"
           />
-          <span className="text-sm font-medium text-gray-700">In Stock Only</span>
+          <span className="text-sm font-semibold text-gray-800">In Stock Only</span>
         </label>
       </div>
     </aside>
@@ -120,7 +176,7 @@ const ShopPage: React.FC = () => {
               <h1 className="text-2xl sm:text-3xl font-black text-gray-900">All Products</h1>
               {data && (
                 <p className="text-xs sm:text-sm text-gray-500 mt-1">
-                  {data.count} {data.count === 1 ? 'product' : 'products'} found
+                  {displayProducts.length} {displayProducts.length === 1 ? 'product' : 'products'} found
                 </p>
               )}
             </div>
@@ -143,7 +199,7 @@ const ShopPage: React.FC = () => {
                 size="sm"
                 leftIcon={<SlidersHorizontal size={14} />}
                 onClick={() => setIsFilterOpen(true)}
-                className="lg:hidden flex-shrink-0 text-xs sm:text-sm py-2 sm:py-2.5 px-3 sm:px-4"
+                className="lg:hidden flex-shrink-0 text-xs sm:text-sm py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl"
               >
                 Filters
               </Button>
@@ -155,7 +211,7 @@ const ShopPage: React.FC = () => {
       <div className="container-wide py-8">
         <div className="flex gap-8">
           {/* Desktop Filters */}
-          <div className="hidden lg:block">
+          <div className="hidden lg:block w-64 flex-shrink-0">
             <div className="card p-5 sticky top-24">
               <FilterSidebar />
             </div>
@@ -179,11 +235,17 @@ const ShopPage: React.FC = () => {
                     </button>
                   </span>
                 )}
+                {category && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-primary-100 text-primary-700 rounded-full text-xs font-medium capitalize">
+                    Category: {category}
+                    <button onClick={() => updateParam('category', undefined)}><X size={12} /></button>
+                  </span>
+                )}
               </div>
             )}
 
             <ProductGrid
-              products={data?.results ?? []}
+              products={displayProducts}
               isLoading={isLoading}
               columns={4}
             />
@@ -209,12 +271,16 @@ const ShopPage: React.FC = () => {
       {/* Mobile filter drawer */}
       {isFilterOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setIsFilterOpen(false)} />
-          <div className="absolute inset-y-0 left-0 w-72 bg-white p-5 overflow-y-auto">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold">Filters</h2>
-              <button onClick={() => setIsFilterOpen(false)}>
-                <X size={20} className="text-gray-400" />
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-xs" onClick={() => setIsFilterOpen(false)} />
+          <div className="absolute inset-y-0 left-0 w-80 max-w-[85vw] bg-white p-6 overflow-y-auto shadow-2xl flex flex-col">
+            <div className="flex items-center justify-between pb-4 mb-2 border-b border-gray-100">
+              <h2 className="text-xl font-black text-gray-900">Filters</h2>
+              <button
+                onClick={() => setIsFilterOpen(false)}
+                className="p-1.5 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors"
+                aria-label="Close filters"
+              >
+                <X size={20} />
               </button>
             </div>
             <FilterSidebar />

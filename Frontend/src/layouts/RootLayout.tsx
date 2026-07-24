@@ -6,6 +6,7 @@ import { useLocation } from 'react-router-dom';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import CartDrawer from '@/components/layout/CartDrawer';
+import BottomNav from '@/components/layout/BottomNav';
 
 const pageVariants = {
   initial: { opacity: 0, y: 8 },
@@ -50,12 +51,13 @@ const RootLayout: React.FC = () => {
           initial="initial"
           animate="animate"
           exit="exit"
-          className="flex-1"
+          className="flex-1 pb-16 lg:pb-0"
         >
           <Outlet />
         </motion.main>
       </AnimatePresence>
       <Footer />
+      <BottomNav />
     </>
   );
 };

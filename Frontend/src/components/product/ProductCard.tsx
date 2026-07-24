@@ -124,7 +124,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickView, classNa
           </p>
 
           {/* Name */}
-          <h3 className="text-sm font-bold text-gray-900 line-clamp-2 mb-2 group-hover:text-primary-600 transition-colors">
+          <h3 className="text-xs sm:text-sm font-semibold text-gray-900 line-clamp-2 mb-1.5 leading-snug group-hover:text-primary-600 transition-colors">
             {product.name}
           </h3>
 
@@ -132,18 +132,18 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickView, classNa
           {product.rating && (
             <div className="flex items-center gap-1 mb-2">
               <Star size={12} fill="#f97316" className="text-secondary-500" />
-              <span className="text-xs font-semibold text-gray-700">{product.rating.toFixed(1)}</span>
-              <span className="text-xs text-gray-400">({product.review_count})</span>
+              <span className="text-[11px] font-semibold text-gray-700">{product.rating.toFixed(1)}</span>
+              <span className="text-[11px] text-gray-400">({product.review_count})</span>
             </div>
           )}
 
           {/* Price */}
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-lg font-black text-gray-900">
+          <div className="flex items-baseline gap-2 mb-3">
+            <span className="text-sm sm:text-base font-bold text-gray-900">
               {formatPrice(product.price)}
             </span>
             {product.compare_price && parseFloat(product.compare_price) > parseFloat(product.price) && (
-              <span className="text-sm text-gray-400 line-through">
+              <span className="text-xs text-gray-400 line-through">
                 {formatPrice(product.compare_price)}
               </span>
             )}

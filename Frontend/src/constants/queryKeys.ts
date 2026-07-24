@@ -26,13 +26,7 @@ export const QUERY_KEYS = {
   // Profile
   PROFILE: 'profile',
   ADDRESSES: 'addresses',
-
-  // Admin
-  ADMIN_STATS: 'admin-stats',
-  ADMIN_PRODUCTS: 'admin-products',
-  ADMIN_CUSTOMERS: 'admin-customers',
-  ADMIN_ORDERS: 'admin-orders',
-
+  
   // Search
   SEARCH: (query: string) => ['search', query] as const,
 } as const;

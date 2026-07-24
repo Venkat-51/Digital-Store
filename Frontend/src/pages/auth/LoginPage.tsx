@@ -30,9 +30,9 @@ const LoginPage: React.FC = () => {
   const onSubmit = async (data: LoginForm) => {
     setIsLoading(true);
     try {
-      await login(data.email, data.password);
-      toast.success('Welcome back!');
-      navigate(ROUTES.HOME);
+      const user = await login(data.email, data.password);
+      toast.success(`Welcome back, ${user?.first_name || 'User'}!`);
+      navigate(ROUTES.PROFILE);
     } catch {
       toast.error('Invalid email or password.');
     } finally {
