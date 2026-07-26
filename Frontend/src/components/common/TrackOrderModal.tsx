@@ -4,7 +4,7 @@ import { X, ArrowRight, Package, Truck, CheckCircle2, AlertCircle, Clock, Search
 import { useNavigate } from 'react-router-dom';
 import { ordersService } from '@/services/orders.service';
 import type { Order } from '@/types/order.types';
-import { ROUTES } from '@/constants/routes';
+import { ROUTES, buildRoute } from '@/constants/routes';
 
 interface TrackOrderModalProps {
   isOpen: boolean;
@@ -212,7 +212,7 @@ export const TrackOrderModal: React.FC<TrackOrderModalProps> = ({ isOpen, onClos
                     type="button"
                     onClick={() => {
                       onClose();
-                      navigate(ROUTES.orderDetail(searchedOrder.order_number));
+                      navigate(buildRoute.orderDetail(searchedOrder.order_number));
                     }}
                     className="flex-1 py-3 px-4 bg-gray-950 text-white rounded-2xl text-xs font-bold hover:bg-black transition-all flex items-center justify-center gap-1.5"
                   >
