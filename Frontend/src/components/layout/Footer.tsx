@@ -64,6 +64,7 @@ const Footer: React.FC = () => {
             <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-5">Quick Links</h3>
             <ul className="space-y-3">
               {[
+                
                 { to: ROUTES.SHOP,    label: 'Shop All Products' },
                 { to: ROUTES.ABOUT,   label: 'About Us' },
                 { to: ROUTES.CONTACT, label: 'Contact Us' },
@@ -122,7 +123,7 @@ const Footer: React.FC = () => {
       {/* Bottom Bar */}
       <div className="border-t border-primary-500/30">
        
-        <div className="container-wide py-5 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="container-wide py-5 flex flex-col sm:flex-row items-center justify-center gap-3">
           <p className="text-xs text-primary-200 text-center sm:text-left">
             © {new Date().getFullYear()} Lexicon Technology Pte Ltd. All rights reserved.
           </p>

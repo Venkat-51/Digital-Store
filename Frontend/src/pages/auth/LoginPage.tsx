@@ -32,7 +32,7 @@ const LoginPage: React.FC = () => {
     try {
       const user = await login(data.email, data.password);
       toast.success(`Welcome back, ${user?.first_name || 'User'}!`);
-      navigate(ROUTES.PROFILE);
+      navigate(ROUTES.HOME);
     } catch {
       toast.error('Invalid email or password.');
     } finally {

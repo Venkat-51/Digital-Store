@@ -19,6 +19,8 @@ const OrderSuccessPage  = lazy(() => import('@/pages/public/OrderSuccessPage'));
 const WishlistPage      = lazy(() => import('@/pages/public/WishlistPage'));
 const AboutPage         = lazy(() => import('@/pages/public/AboutPage'));
 const ContactPage       = lazy(() => import('@/pages/public/ContactPage'));
+const LaptopServicePage = lazy(() => import('@/pages/public/LaptopServicePage'));
+const OrderTrackingPage = lazy(() => import('@/pages/public/OrderTrackingPage'));
 const FAQPage           = lazy(() => import('@/pages/public/FAQPage'));
 const PrivacyPage       = lazy(() => import('@/pages/public/PrivacyPage'));
 const TermsPage         = lazy(() => import('@/pages/public/TermsPage'));
@@ -57,11 +59,10 @@ const router = createBrowserRouter([
       { path: 'faq',                  element: <Wrap><FAQPage /></Wrap> },
       { path: 'privacy-policy',       element: <Wrap><PrivacyPage /></Wrap> },
       { path: 'terms-and-conditions', element: <Wrap><TermsPage /></Wrap> },
-      { path: 'wholesale',            element: <Wrap><ContactPage /></Wrap> },
       { path: 'trade-in',             element: <Wrap><ContactPage /></Wrap> },
-      { path: 'laptop-service',       element: <Wrap><ContactPage /></Wrap> },
+      { path: 'laptop-service',       element: <Wrap><LaptopServicePage /></Wrap> },
       { path: 'donate',               element: <Wrap><ContactPage /></Wrap> },
-      { path: 'order-tracking',       element: <Wrap><ContactPage /></Wrap> },
+      { path: 'order-tracking',       element: <Wrap><OrderTrackingPage /></Wrap> },
       {
         path: 'account',
         element: <CustomerLayout />,

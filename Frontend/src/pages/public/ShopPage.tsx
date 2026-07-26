@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useParams } from 'react-router-dom';
 import { SlidersHorizontal, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { useProducts } from '@/hooks/useProducts';
 import ProductGrid from '@/components/product/ProductGrid';
 import { Breadcrumb, Pagination } from '@/components/ui/Navigation';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Input';
-import { SORT_OPTIONS, CONFIG } from '@/constants/config';
+import { SORT_OPTIONS, CONFIG, NAV_CATEGORIES } from '@/constants/config';
 import type { ProductFilters } from '@/types/product.types';
 import { cn } from '@/utils/helpers';
 
@@ -21,14 +21,18 @@ const PRICE_RANGES = [
 
 const ShopPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { slug } = useParams();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const page = Number(searchParams.get('page') ?? '1');
   const ordering = searchParams.get('ordering') ?? '';
-  const category = searchParams.get('category') ?? '';
+  const category = slug || (searchParams.get('category') ?? '');
   const minPrice = searchParams.get('min_price');
   const maxPrice = searchParams.get('max_price');
   const inStock = searchParams.get('in_stock');
+
+  const activeCategory = NAV_CATEGORIES.find((c) => c.slug === category);
+  const categoryName = activeCategory ? activeCategory.name : '';
 
   const filters: ProductFilters = {
     page,
@@ -170,10 +174,17 @@ const ShopPage: React.FC = () => {
       {/* Header */}
       <div className="bg-white border-b border-gray-100 py-8">
         <div className="container-wide">
-          <Breadcrumb items={[{ label: 'Shop' }]} />
+          <Breadcrumb
+            items={[
+              { label: 'Shop', href: '/shop' },
+              ...(categoryName ? [{ label: categoryName }] : []),
+            ]}
+          />
           <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-black text-gray-900">All Products</h1>
+              <h1 className="text-2xl sm:text-3xl font-black text-gray-900">
+                {categoryName || 'All Products'}
+              </h1>
               {data && (
                 <p className="text-xs sm:text-sm text-gray-500 mt-1">
                   {displayProducts.length} {displayProducts.length === 1 ? 'product' : 'products'} found

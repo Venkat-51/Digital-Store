@@ -19,7 +19,6 @@ export const ROUTES = {
   FAQ: '/faq',
   PRIVACY: '/privacy-policy',
   TERMS: '/terms-and-conditions',
-  WHOLESALE: '/wholesale',
   TRADE_IN: '/trade-in',
   LAPTOP_SERVICE: '/laptop-service',
   DONATE: '/donate',
