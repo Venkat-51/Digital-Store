@@ -1,0 +1,136 @@
+from rest_framework import serializers
+from django.contrib.auth.models import User
+from .models import (
+    Category, Brand, Product, ProductImage, Specification,
+    UserProfile, Address, Order, OrderItem, WishlistItem
+)
+
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ['id', 'name', 'slug', 'description', 'image']
+
+class BrandSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Brand
+        fields = ['id', 'name', 'slug', 'logo']
+
+class ProductImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductImage
+        fields = ['id', 'image', 'is_primary']
+
+class SpecificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Specification
+        fields = ['id', 'name', 'value']
+
+class ProductSerializer(serializers.ModelSerializer):
+    category = CategorySerializer(read_only=True)
+    brand = BrandSerializer(read_only=True)
+    images = ProductImageSerializer(many=True, read_only=True)
+    specifications = SpecificationSerializer(many=True, read_only=True)
+    price = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Product
+        fields = [
+            'id', 'name', 'slug', 'sku', 'description', 'category', 'brand',
+            'price', 'thumbnail', 'images', 'stock', 'is_in_stock',
+            'is_featured', 'is_new', 'is_sale', 'created_at', 'updated_at',
+            'specifications'
+        ]
+
+    def get_price(self, obj):
+        return f"{obj.price:.2f}"
+
+class AddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Address
+        fields = [
+            'id', 'label', 'full_name', 'phone', 'address_line1',
+            'address_line2', 'city', 'state', 'postal_code', 'country', 'is_default'
+        ]
+
+class OrderItemSerializer(serializers.ModelSerializer):
+    product = serializers.SerializerMethodField()
+    unit_price = serializers.SerializerMethodField()
+    total_price = serializers.SerializerMethodField()
+
+    class Meta:
+        model = OrderItem
+        fields = ['id', 'product', 'product_name', 'quantity', 'unit_price', 'total_price']
+
+    def get_product(self, obj):
+        if obj.product:
+            return {
+                "id": obj.product.id,
+                "name": obj.product.name,
+                "price": f"{obj.product.price:.2f}",
+                "thumbnail": obj.product.thumbnail,
+            }
+        return {"id": 0, "name": obj.product_name, "price": f"{obj.unit_price:.2f}", "thumbnail": ""}
+
+    def get_unit_price(self, obj):
+        return f"{obj.unit_price:.2f}"
+
+    def get_total_price(self, obj):
+        return f"{obj.total_price:.2f}"
+
+class OrderSerializer(serializers.ModelSerializer):
+    customer = serializers.SerializerMethodField()
+    items = OrderItemSerializer(many=True, read_only=True)
+    subtotal = serializers.SerializerMethodField()
+    shipping_cost = serializers.SerializerMethodField()
+    tax = serializers.SerializerMethodField()
+    total = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Order
+        fields = [
+            'id', 'order_number', 'customer', 'items', 'status',
+            'shipping_address', 'subtotal', 'shipping_cost', 'tax', 'total',
+            'created_at', 'updated_at'
+        ]
+
+    def get_customer(self, obj):
+        return {
+            "id": obj.user.id if obj.user else 1,
+            "email": obj.customer_email,
+            "first_name": obj.customer_name.split()[0] if obj.customer_name else "Customer",
+            "last_name": " ".join(obj.customer_name.split()[1:]) if obj.customer_name and " " in obj.customer_name else "",
+            "phone": obj.customer_phone,
+            "is_staff": False,
+            "is_active": True,
+            "date_joined": obj.created_at.isoformat()
+        }
+
+    def get_subtotal(self, obj):
+        return f"{obj.subtotal:.2f}"
+
+    def get_shipping_cost(self, obj):
+        return f"{obj.shipping_cost:.2f}"
+
+    def get_tax(self, obj):
+        return f"{obj.tax:.2f}"
+
+    def get_total(self, obj):
+        return f"{obj.total:.2f}"
+
+class UserSerializer(serializers.ModelSerializer):
+    phone = serializers.SerializerMethodField()
+    avatar = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ['id', 'email', 'first_name', 'last_name', 'phone', 'avatar', 'is_staff', 'is_active', 'date_joined']
+
+    def get_phone(self, obj):
+        if hasattr(obj, 'profile') and obj.profile.phone:
+            return obj.profile.phone
+        return "+65 9123 4567"
+
+    def get_avatar(self, obj):
+        if hasattr(obj, 'profile') and obj.profile.avatar:
+            return obj.profile.avatar
+        return ""
