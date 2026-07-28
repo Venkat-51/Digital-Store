@@ -25,91 +25,110 @@ from .serializers import (
 def ensure_database_seeded():
     """Auto-seed Neon database if empty."""
     try:
-        if Category.objects.count() == 0 or Product.objects.count() == 0:
-            call_command('seed_data')
+        from django.db import connection
+        tables = connection.introspection.table_names()
+        if 'api_category' in tables and 'api_product' in tables:
+            if Category.objects.count() == 0 or Product.objects.count() == 0:
+                call_command('seed_data')
     except Exception as e:
         print(f"Auto-seed exception: {e}")
 
 class CategoryListView(APIView):
     def get(self, request):
-        ensure_database_seeded()
-        categories = Category.objects.all()
-        serializer = CategorySerializer(categories, many=True)
-        return Response(serializer.data)
+        try:
+            ensure_database_seeded()
+            categories = Category.objects.all()
+            serializer = CategorySerializer(categories, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            print(f"CategoryListView Error: {e}")
+            return Response([])
 
 class ProductListView(APIView):
     def get(self, request):
-        ensure_database_seeded()
-        queryset = Product.objects.select_related('category', 'brand').prefetch_related('images', 'specifications').all()
-
-        category_param = request.query_params.get('category', '').strip().lower()
-        min_price_param = request.query_params.get('min_price')
-        max_price_param = request.query_params.get('max_price')
-        in_stock_param = request.query_params.get('in_stock')
-        search_param = request.query_params.get('search') or request.query_params.get('q')
-        ordering_param = request.query_params.get('ordering')
-
-        if category_param and category_param != 'all':
-            queryset = queryset.filter(Q(category__slug=category_param) | Q(category__name__iexact=category_param))
-
-        if min_price_param:
-            try:
-                queryset = queryset.filter(price__gte=float(min_price_param))
-            except ValueError:
-                pass
-
-        if max_price_param:
-            try:
-                queryset = queryset.filter(price__lte=float(max_price_param))
-            except ValueError:
-                pass
-
-        if in_stock_param in ['true', '1', True]:
-            queryset = queryset.filter(stock__gt=0)
-
-        if search_param:
-            sp = search_param.strip()
-            queryset = queryset.filter(
-                Q(name__icontains=sp) |
-                Q(category__name__icontains=sp) |
-                Q(brand__name__icontains=sp) |
-                Q(description__icontains=sp)
-            )
-
-        if ordering_param:
-            if ordering_param in ['price', '-price', 'name', '-name', 'stock', '-stock']:
-                queryset = queryset.order_by(ordering_param)
-        else:
-            queryset = queryset.order_by('id')
-
-        # Handle pagination
         try:
-            page_size = int(request.query_params.get('page_size', 0))
-        except (ValueError, TypeError):
-            page_size = 0
+            ensure_database_seeded()
+        except Exception:
+            pass
 
         try:
-            page = int(request.query_params.get('page', 1))
-        except (ValueError, TypeError):
-            page = 1
+            queryset = Product.objects.select_related('category', 'brand').prefetch_related('images', 'specifications').all()
 
-        total_count = queryset.count()
+            category_param = request.query_params.get('category', '').strip().lower()
+            min_price_param = request.query_params.get('min_price')
+            max_price_param = request.query_params.get('max_price')
+            in_stock_param = request.query_params.get('in_stock')
+            search_param = request.query_params.get('search') or request.query_params.get('q')
+            ordering_param = request.query_params.get('ordering')
 
-        if page_size > 0:
-            start = (page - 1) * page_size
-            end = start + page_size
-            paginated_qs = queryset[start:end]
-        else:
-            paginated_qs = queryset
+            if category_param and category_param != 'all':
+                queryset = queryset.filter(Q(category__slug=category_param) | Q(category__name__iexact=category_param))
 
-        serializer = ProductSerializer(paginated_qs, many=True)
+            if min_price_param:
+                try:
+                    queryset = queryset.filter(price__gte=float(min_price_param))
+                except ValueError:
+                    pass
 
-        return Response({
-            "count": total_count,
-            "next": None,
-            "previous": None,
-            "results": serializer.data
-        })
+            if max_price_param:
+                try:
+                    queryset = queryset.filter(price__lte=float(max_price_param))
+                except ValueError:
+                    pass
+
+            if in_stock_param in ['true', '1', True]:
+                queryset = queryset.filter(stock__gt=0)
+
+            if search_param:
+                sp = search_param.strip()
+                queryset = queryset.filter(
+                    Q(name__icontains=sp) |
+                    Q(category__name__icontains=sp) |
+                    Q(brand__name__icontains=sp) |
+                    Q(description__icontains=sp)
+                )
+
+            if ordering_param:
+                if ordering_param in ['price', '-price', 'name', '-name', 'stock', '-stock']:
+                    queryset = queryset.order_by(ordering_param)
+            else:
+                queryset = queryset.order_by('id')
+
+            try:
+                page_size = int(request.query_params.get('page_size', 0))
+            except (ValueError, TypeError):
+                page_size = 0
+
+            try:
+                page = int(request.query_params.get('page', 1))
+            except (ValueError, TypeError):
+                page = 1
+
+            total_count = queryset.count()
+
+            if page_size > 0:
+                start = (page - 1) * page_size
+                end = start + page_size
+                paginated_qs = queryset[start:end]
+            else:
+                paginated_qs = queryset
+
+            serializer = ProductSerializer(paginated_qs, many=True)
+
+            return Response({
+                "count": total_count,
+                "next": None,
+                "previous": None,
+                "results": serializer.data
+            })
+        except Exception as e:
+            print(f"ProductListView Error: {e}")
+            return Response({
+                "count": 0,
+                "next": None,
+                "previous": None,
+                "results": []
+            })
 
 class ProductDetailView(APIView):
     def get(self, request, slug):
@@ -129,23 +148,39 @@ class ProductImageView(APIView):
 
 class ProductFeaturedView(APIView):
     def get(self, request):
-        ensure_database_seeded()
-        featured = Product.objects.filter(is_featured=True)[:4]
-        if not featured.exists():
-            featured = Product.objects.all()[:4]
-        serializer = ProductSerializer(featured, many=True)
-        return Response(serializer.data)
+        try:
+            try:
+                ensure_database_seeded()
+            except Exception:
+                pass
+
+            featured = Product.objects.filter(is_featured=True)[:4]
+            if not featured.exists():
+                featured = Product.objects.all()[:4]
+            serializer = ProductSerializer(featured, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            print(f"ProductFeaturedView Error: {e}")
+            return Response([])
 
 class ProductRelatedView(APIView):
     def get(self, request, product_id):
-        ensure_database_seeded()
-        product = Product.objects.filter(id=product_id).first()
-        if product and product.category:
-            related = Product.objects.filter(category=product.category).exclude(id=product_id)[:4]
-        else:
-            related = Product.objects.exclude(id=product_id)[:4]
-        serializer = ProductSerializer(related, many=True)
-        return Response(serializer.data)
+        try:
+            try:
+                ensure_database_seeded()
+            except Exception:
+                pass
+
+            product = Product.objects.filter(id=product_id).first()
+            if product and product.category:
+                related = Product.objects.filter(category=product.category).exclude(id=product_id)[:4]
+            else:
+                related = Product.objects.exclude(id=product_id)[:4]
+            serializer = ProductSerializer(related, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            print(f"ProductRelatedView Error: {e}")
+            return Response([])
 
 class AuthRegisterView(APIView):
     def post(self, request):
@@ -308,10 +343,15 @@ class AuthGoogleView(APIView):
 class OrderCreateView(APIView):
     def get(self, request):
         ensure_database_seeded()
-        orders = Order.objects.prefetch_related('items').all().order_by('-created_at')
-        serializer = OrderSerializer(orders, many=True)
+        status_param = request.query_params.get('status')
+        queryset = Order.objects.prefetch_related('items', 'items__product').all().order_by('-created_at')
+
+        if status_param and status_param != 'all':
+            queryset = queryset.filter(status__iexact=status_param)
+
+        serializer = OrderSerializer(queryset, many=True)
         return Response({
-            "count": orders.count(),
+            "count": queryset.count(),
             "next": None,
             "previous": None,
             "results": serializer.data
@@ -322,22 +362,40 @@ class OrderCreateView(APIView):
         data = request.data or {}
         raw_items = data.get("items", [])
 
-        c_name = str(data.get("customer_name", "guru k"))
-        c_email = str(data.get("customer_email", "guru@gmail.com"))
-        c_phone = str(data.get("customer_phone", "+65 9123 4567"))
-        shipping_addr = data.get("shipping_address") or {
-            "full_name": c_name,
-            "phone": c_phone,
-            "address_line1": "123 Orchard Road, #05-10",
-            "city": "Singapore",
-            "postal_code": "238888",
-            "country": "Singapore"
-        }
+        c_name = str(data.get("customer_name") or "guru k")
+        c_email = str(data.get("customer_email") or "guru@gmail.com")
+        c_phone = str(data.get("customer_phone") or "+65 9123 4567")
+
+        shipping_addr = data.get("shipping_address")
+        if not shipping_addr and data.get("shipping_address_id"):
+            addr_obj = Address.objects.filter(id=data["shipping_address_id"]).first()
+            if addr_obj:
+                shipping_addr = {
+                    "full_name": addr_obj.full_name,
+                    "phone": addr_obj.phone,
+                    "address_line1": addr_obj.address_line1,
+                    "address_line2": addr_obj.address_line2,
+                    "city": addr_obj.city,
+                    "state": addr_obj.state,
+                    "postal_code": addr_obj.postal_code,
+                    "country": addr_obj.country
+                }
+
+        if not shipping_addr:
+            shipping_addr = {
+                "full_name": c_name,
+                "phone": c_phone,
+                "address_line1": "123 Orchard Road, #05-10",
+                "city": "Singapore",
+                "postal_code": "238888",
+                "country": "Singapore"
+            }
 
         user = User.objects.filter(username="guru").first() or User.objects.first()
 
-        order_count = Order.objects.count()
-        order_number = f"ORD-2026-{1001 + order_count}"
+        import time, random
+        unique_suffix = int(time.time() * 100) % 90000 + 10000
+        order_number = f"ORD-2026-{unique_suffix}"
 
         order = Order.objects.create(
             order_number=order_number,
@@ -357,8 +415,12 @@ class OrderCreateView(APIView):
                 pid = 0
 
             prod_obj = Product.objects.filter(id=pid).first()
-            p_name = prod_obj.name if prod_obj else f"Product #{pid}"
-            p_price = float(prod_obj.price) if prod_obj else 0.0
+            p_name = item_data.get("product_name") or (prod_obj.name if prod_obj else f"Product #{pid}")
+            
+            try:
+                p_price = float(item_data.get("unit_price") or (prod_obj.price if prod_obj else 0.0))
+            except (ValueError, TypeError):
+                p_price = float(prod_obj.price) if prod_obj else 0.0
 
             try:
                 qty = int(item_data.get("quantity", 1))
@@ -389,18 +451,62 @@ class OrderCreateView(APIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 class OrderDetailView(APIView):
-    def get(self, request, order_number):
+    def get(self, request, order_number=None, pk=None):
         ensure_database_seeded()
-        order = Order.objects.filter(order_number__iexact=order_number).first()
+        target = order_number or pk
+        order = Order.objects.filter(order_number__iexact=str(target)).first()
+        if not order and str(target).isdigit():
+            order = Order.objects.filter(id=int(target)).first()
+
         if not order:
             return Response({"error": "Order not found"}, status=404)
+
+        serializer = OrderSerializer(order)
+        return Response(serializer.data)
+
+    def patch(self, request, order_number=None, pk=None):
+        ensure_database_seeded()
+        target = order_number or pk
+        order = Order.objects.filter(order_number__iexact=str(target)).first()
+        if not order and str(target).isdigit():
+            order = Order.objects.filter(id=int(target)).first()
+
+        if not order:
+            return Response({"error": "Order not found"}, status=404)
+
+        data = request.data or {}
+        if "status" in data:
+            order.status = data["status"]
+            order.save()
+
+        serializer = OrderSerializer(order)
+        return Response(serializer.data)
+
+class OrderCancelView(APIView):
+    def post(self, request, order_number=None, pk=None):
+        ensure_database_seeded()
+        target = order_number or pk
+        order = Order.objects.filter(order_number__iexact=str(target)).first()
+        if not order and str(target).isdigit():
+            order = Order.objects.filter(id=int(target)).first()
+
+        if not order:
+            return Response({"error": "Order not found"}, status=404)
+
+        order.status = "cancelled"
+        order.save()
+
         serializer = OrderSerializer(order)
         return Response(serializer.data)
 
 class OrderInvoiceView(APIView):
-    def get(self, request, order_number):
+    def get(self, request, order_number=None, pk=None):
         ensure_database_seeded()
-        order = Order.objects.filter(order_number__iexact=order_number).first()
+        target = order_number or pk
+        order = Order.objects.filter(order_number__iexact=str(target)).first()
+        if not order and str(target).isdigit():
+            order = Order.objects.filter(id=int(target)).first()
+
         if not order:
             return Response({"error": "Order not found"}, status=404)
 

@@ -3,7 +3,7 @@ from .views import (
     CategoryListView, ProductListView, ProductImageView, ProductDetailView,
     ProductFeaturedView, ProductRelatedView, AuthRegisterView, AuthLoginView,
     AuthMeView, AuthLogoutView, AuthPasswordResetView, AuthPasswordResetConfirmView,
-    AuthTokenRefreshView, AuthGoogleView, OrderCreateView, OrderDetailView, OrderInvoiceView,
+    AuthTokenRefreshView, AuthGoogleView, OrderCreateView, OrderDetailView, OrderCancelView, OrderInvoiceView,
     AddressListView, AddressDetailView, AddressSetDefaultView
 )
 
@@ -24,7 +24,10 @@ urlpatterns = [
     path('auth/password/reset/confirm/', AuthPasswordResetConfirmView.as_view(), name='auth-password-reset-confirm'),
     path('auth/token/refresh/', AuthTokenRefreshView.as_view(), name='auth-token-refresh'),
     path('orders/', OrderCreateView.as_view(), name='order-create'),
+    path('orders/<int:pk>/', OrderDetailView.as_view(), name='order-detail-pk'),
+    path('orders/<int:pk>/cancel/', OrderCancelView.as_view(), name='order-cancel-pk'),
     path('orders/<str:order_number>/', OrderDetailView.as_view(), name='order-detail'),
+    path('orders/<str:order_number>/cancel/', OrderCancelView.as_view(), name='order-cancel'),
     path('orders/<str:order_number>/invoice/', OrderInvoiceView.as_view(), name='order-invoice'),
     path('addresses/', AddressListView.as_view(), name='address-list'),
     path('addresses/<int:pk>/', AddressDetailView.as_view(), name='address-detail'),
