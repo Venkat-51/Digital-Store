@@ -2,7 +2,6 @@ import os
 import csv
 import urllib.parse
 from pathlib import Path
-from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
 
 def get_data_dir():
     """
