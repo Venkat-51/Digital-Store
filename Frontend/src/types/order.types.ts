@@ -38,6 +38,10 @@ export interface Order {
   total: string;
   notes?: string;
   company_name?: string;
+  customer_name?: string;
+  customer_email?: string;
+  customer_phone?: string;
+  whatsapp_url?: string;
   created_at: string;
   updated_at: string;
   estimated_delivery?: string;
