@@ -25,7 +25,9 @@ export const GoogleSignInButton: React.FC = () => {
   };
 
   const handleError = () => {
-    toast.error('Google Sign-in was cancelled or failed.');
+    toast.error('Google Sign-in: Please add http://localhost:5173 & https://lexicon-self.vercel.app to Authorized Origins in Google Cloud Console.', {
+      duration: 6000,
+    });
   };
 
   return (
