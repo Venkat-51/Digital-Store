@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from 'react';
-import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate, useRouteError } from 'react-router-dom';
 import { PageLoader } from '@/components/ui/Loader';
 
 // Layouts
@@ -7,33 +7,89 @@ import RootLayout from '@/layouts/RootLayout';
 import AuthLayout from '@/layouts/AuthLayout';
 import CustomerLayout from '@/layouts/CustomerLayout';
 
+// Automatic Retry Wrapper for Dynamic Imports (Handles Vercel chunk hash updates gracefully)
+const lazyRetry = <T extends React.ComponentType<any>>(
+  componentImport: () => Promise<{ default: T }>
+) =>
+  lazy(async () => {
+    const hasAlreadyRefreshed = sessionStorage.getItem('retry_chunk_refreshed');
+    try {
+      const component = await componentImport();
+      sessionStorage.removeItem('retry_chunk_refreshed');
+      return component;
+    } catch (error) {
+      if (!hasAlreadyRefreshed) {
+        sessionStorage.setItem('retry_chunk_refreshed', 'true');
+        window.location.reload();
+        return { default: (() => null) as unknown as T };
+      }
+      throw error;
+    }
+  });
+
+// Error Boundary for React Router
+const RootErrorBoundary: React.FC = () => {
+  const error: any = useRouteError();
+  const isChunkError =
+    error?.name === 'TypeError' ||
+    error?.message?.includes('Failed to fetch dynamically imported module') ||
+    error?.message?.includes('Importing a module script failed');
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6 font-sans">
+      <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-xl border border-gray-100 text-center space-y-5">
+        <div className="w-16 h-16 bg-primary-50 text-primary-600 rounded-2xl flex items-center justify-center mx-auto font-bold text-2xl">
+          !
+        </div>
+        <h2 className="text-xl font-black text-gray-900">
+          {isChunkError ? 'Application Updated' : 'Something went wrong'}
+        </h2>
+        <p className="text-sm text-gray-500 leading-relaxed">
+          {isChunkError
+            ? 'A new version of the app is available. Click below to refresh and load the latest updates.'
+            : 'An unexpected error occurred while loading this page.'}
+        </p>
+        <button
+          onClick={() => {
+            sessionStorage.removeItem('retry_chunk_refreshed');
+            window.location.reload();
+          }}
+          className="w-full py-3.5 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-2xl transition-colors shadow-md text-sm cursor-pointer"
+        >
+          Refresh Page
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // Lazy-loaded pages — Public
-const HomePage          = lazy(() => import('@/pages/public/HomePage'));
-const ShopPage          = lazy(() => import('@/pages/public/ShopPage'));
-const CategoriesPage    = lazy(() => import('@/pages/public/CategoriesPage'));
-const ProductDetailPage = lazy(() => import('@/pages/public/ProductDetailPage'));
-const SearchPage        = lazy(() => import('@/pages/public/SearchPage'));
-const CartPage          = lazy(() => import('@/pages/public/CartPage'));
-const CheckoutPage      = lazy(() => import('@/pages/public/CheckoutPage'));
-const OrderSuccessPage  = lazy(() => import('@/pages/public/OrderSuccessPage'));
-const WishlistPage      = lazy(() => import('@/pages/public/WishlistPage'));
-const AboutPage         = lazy(() => import('@/pages/public/AboutPage'));
-const ContactPage       = lazy(() => import('@/pages/public/ContactPage'));
-const LaptopServicePage = lazy(() => import('@/pages/public/LaptopServicePage'));
-const OrderTrackingPage = lazy(() => import('@/pages/public/OrderTrackingPage'));
-const FAQPage           = lazy(() => import('@/pages/public/FAQPage'));
-const PrivacyPage       = lazy(() => import('@/pages/public/PrivacyPage'));
-const TermsPage         = lazy(() => import('@/pages/public/TermsPage'));
+const HomePage          = lazyRetry(() => import('@/pages/public/HomePage'));
+const ShopPage          = lazyRetry(() => import('@/pages/public/ShopPage'));
+const CategoriesPage    = lazyRetry(() => import('@/pages/public/CategoriesPage'));
+const ProductDetailPage = lazyRetry(() => import('@/pages/public/ProductDetailPage'));
+const SearchPage        = lazyRetry(() => import('@/pages/public/SearchPage'));
+const CartPage          = lazyRetry(() => import('@/pages/public/CartPage'));
+const CheckoutPage      = lazyRetry(() => import('@/pages/public/CheckoutPage'));
+const OrderSuccessPage  = lazyRetry(() => import('@/pages/public/OrderSuccessPage'));
+const WishlistPage      = lazyRetry(() => import('@/pages/public/WishlistPage'));
+const AboutPage         = lazyRetry(() => import('@/pages/public/AboutPage'));
+const ContactPage       = lazyRetry(() => import('@/pages/public/ContactPage'));
+const LaptopServicePage = lazyRetry(() => import('@/pages/public/LaptopServicePage'));
+const OrderTrackingPage = lazyRetry(() => import('@/pages/public/OrderTrackingPage'));
+const FAQPage           = lazyRetry(() => import('@/pages/public/FAQPage'));
+const PrivacyPage       = lazyRetry(() => import('@/pages/public/PrivacyPage'));
+const TermsPage         = lazyRetry(() => import('@/pages/public/TermsPage'));
 
 // Auth
-const LoginPage         = lazy(() => import('@/pages/auth/LoginPage'));
-const RegisterPage      = lazy(() => import('@/pages/auth/RegisterPage'));
-const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage'));
+const LoginPage          = lazyRetry(() => import('@/pages/auth/LoginPage'));
+const RegisterPage       = lazyRetry(() => import('@/pages/auth/RegisterPage'));
+const ForgotPasswordPage = lazyRetry(() => import('@/pages/auth/ForgotPasswordPage'));
 
 // Customer
-const ProfilePage       = lazy(() => import('@/pages/customer/ProfilePage'));
-const OrdersPage        = lazy(() => import('@/pages/customer/OrdersPage'));
-const SavedAddressesPage = lazy(() => import('@/pages/customer/SavedAddressesPage'));
+const ProfilePage        = lazyRetry(() => import('@/pages/customer/ProfilePage'));
+const OrdersPage         = lazyRetry(() => import('@/pages/customer/OrdersPage'));
+const SavedAddressesPage = lazyRetry(() => import('@/pages/customer/SavedAddressesPage'));
 
 const Wrap: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <Suspense fallback={<PageLoader />}>{children}</Suspense>
@@ -43,6 +99,7 @@ const router = createBrowserRouter([
   {
     path: '/',
     element: <RootLayout />,
+    errorElement: <RootErrorBoundary />,
     children: [
       { index: true,                   element: <Wrap><HomePage /></Wrap> },
       { path: 'shop',                  element: <Wrap><ShopPage /></Wrap> },
@@ -66,6 +123,7 @@ const router = createBrowserRouter([
       {
         path: 'account',
         element: <CustomerLayout />,
+        errorElement: <RootErrorBoundary />,
         children: [
           { index: true,        element: <Wrap><ProfilePage /></Wrap> },
           { path: 'profile',    element: <Wrap><ProfilePage /></Wrap> },
@@ -80,6 +138,7 @@ const router = createBrowserRouter([
   {
     path: '/',
     element: <AuthLayout />,
+    errorElement: <RootErrorBoundary />,
     children: [
       { path: 'login',           element: <Wrap><LoginPage /></Wrap> },
       { path: 'register',        element: <Wrap><RegisterPage /></Wrap> },
