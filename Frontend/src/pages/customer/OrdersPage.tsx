@@ -75,22 +75,6 @@ const OrdersPage: React.FC = () => {
             <ArrowLeft size={16} /> Back
           </button>
           <div className="flex items-center gap-2">
-            <a
-              href={
-                orderDetail.whatsapp_url ||
-                `https://api.whatsapp.com/send?phone=919500882090&text=${encodeURIComponent(
-                  `🧾 *ORDER INVOICE - LEXICON TECHNOLOGY*\n\n📌 Order Number: #${orderDetail.order_number}\n👤 Customer: ${orderDetail.customer_name || ''}\n💰 Total: S$${orderDetail.total}\n📄 Invoice PDF: https://lexicon-self.vercel.app/orders/${orderDetail.order_number}`
-                )}`
-              }
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2 px-3.5 rounded-xl flex items-center gap-1.5 shadow-sm transition-all active:scale-98"
-            >
-              <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" aria-hidden="true">
-                <path d="M12.012 2c-5.506 0-9.989 4.478-9.99 9.984a9.964 9.964 0 001.333 4.993L2 22l5.233-1.237a9.98 9.98 0 004.779 1.221h.005c5.505 0 9.988-4.478 9.989-9.984 0-2.669-1.038-5.176-2.925-7.062A9.925 9.925 0 0012.012 2zm5.836 14.155c-.244.686-1.42 1.309-1.956 1.393-.497.078-1.139.112-1.841-.112-.426-.135-1.002-.319-1.745-.64-3.123-1.353-5.158-4.508-5.314-4.717-.156-.208-1.267-1.687-1.267-3.218 0-1.53.799-2.285 1.085-2.597.286-.312.624-.39.832-.39.208 0 .416.002.597.01.195.008.455-.074.715.546.26.623.884 2.158.962 2.314.078.156.13.338.026.546-.104.208-.156.338-.312.52-.156.182-.328.406-.468.546-.156.156-.319.325-.137.637.182.312.809 1.334 1.734 2.158 1.19 1.06 2.193 1.389 2.505 1.545.312.156.494.13.676-.078.182-.208.78-.91.988-1.222.208-.312.416-.26.696-.156.28.104 1.776.837 2.083.991.307.154.512.232.59.362.078.13.078.754-.166 1.44z"/>
-              </svg>
-              WhatsApp Invoice (+91 9500882090)
-            </a>
             <Button
               variant="outline"
               size="sm"
