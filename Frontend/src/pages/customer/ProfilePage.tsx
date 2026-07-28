@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -41,8 +41,21 @@ const ProfilePage: React.FC = () => {
   const [editingPassword, setEditingPassword] = useState(false);
   const [isMobileEditOpen, setIsMobileEditOpen] = useState(false);
 
-  const displayName = user?.first_name
-    ? `${user.first_name} ${user.last_name || ''}`.trim()
+  const { data: fetchedUser } = useQuery({
+    queryKey: [QUERY_KEYS.PROFILE],
+    queryFn: profileService.getProfile,
+  });
+
+  useEffect(() => {
+    if (fetchedUser) {
+      updateUser(fetchedUser);
+    }
+  }, [fetchedUser, updateUser]);
+
+  const currentUser = fetchedUser || user;
+
+  const displayName = currentUser?.first_name
+    ? `${currentUser.first_name} ${currentUser.last_name || ''}`.trim()
     : 'Lexicon User';
 
   const handleLogout = async () => {
@@ -53,12 +66,23 @@ const ProfilePage: React.FC = () => {
   const { register, handleSubmit, formState: { errors }, reset: resetProfile } = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      first_name: user?.first_name || '',
-      last_name: user?.last_name || '',
-      email: user?.email || '',
-      phone: user?.phone || '',
+      first_name: currentUser?.first_name || '',
+      last_name: currentUser?.last_name || '',
+      email: currentUser?.email || '',
+      phone: currentUser?.phone || '',
     },
   });
+
+  useEffect(() => {
+    if (currentUser) {
+      resetProfile({
+        first_name: currentUser.first_name || '',
+        last_name: currentUser.last_name || '',
+        email: currentUser.email || '',
+        phone: currentUser.phone || '',
+      });
+    }
+  }, [currentUser?.first_name, currentUser?.last_name, currentUser?.email, currentUser?.phone, resetProfile]);
 
   const { register: regPwd, handleSubmit: handlePwd, reset: resetPwd, formState: { errors: pwdErrors } } = useForm<PasswordForm>({
     resolver: zodResolver(passwordSchema),

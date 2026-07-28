@@ -206,54 +206,59 @@ class ProductImageView(APIView):
         image_url = get_product_image_url(product_name)
         return Response({'image_url': image_url})
 
+MOCK_USER_PROFILE = {
+    "id": 1,
+    "email": "venkat@gmail.com",
+    "first_name": "venkat",
+    "last_name": "G",
+    "phone": "+65 9123 4567",
+    "is_staff": False,
+    "is_active": True,
+    "date_joined": "2026-01-01T00:00:00Z"
+}
+
 class AuthRegisterView(APIView):
     def post(self, request):
-        data = request.data
-        user = {
-            "id": 1,
-            "email": data.get("email", ""),
-            "first_name": data.get("first_name", ""),
-            "last_name": data.get("last_name", ""),
-            "is_staff": True,
-            "is_active": True,
-            "date_joined": "2026-01-01T00:00:00Z"
-        }
+        data = request.data or {}
+        if data.get("email"):
+            MOCK_USER_PROFILE["email"] = data.get("email")
+        if data.get("first_name"):
+            MOCK_USER_PROFILE["first_name"] = data.get("first_name")
+        if data.get("last_name"):
+            MOCK_USER_PROFILE["last_name"] = data.get("last_name")
+        if data.get("phone"):
+            MOCK_USER_PROFILE["phone"] = data.get("phone")
+            
         tokens = {
             "access": "mock_access_token",
             "refresh": "mock_refresh_token"
         }
-        return Response({"tokens": tokens, "user": user})
+        return Response({"tokens": tokens, "user": MOCK_USER_PROFILE})
 
 class AuthLoginView(APIView):
     def post(self, request):
-        data = request.data
-        user = {
-            "id": 1,
-            "email": data.get("email", ""),
-            "first_name": "Lexicon",
-            "last_name": "User",
-            "is_staff": False,
-            "is_active": True,
-            "date_joined": "2026-01-01T00:00:00Z"
-        }
+        data = request.data or {}
+        if data.get("email"):
+            MOCK_USER_PROFILE["email"] = data.get("email")
         tokens = {
             "access": "mock_access_token",
             "refresh": "mock_refresh_token"
         }
-        return Response({"tokens": tokens, "user": user})
+        return Response({"tokens": tokens, "user": MOCK_USER_PROFILE})
 
 class AuthMeView(APIView):
     def get(self, request):
-        user = {
-            "id": 1,
-            "email": "user@example.com",
-            "first_name": "Lexicon",
-            "last_name": "User",
-            "is_staff": False,
-            "is_active": True,
-            "date_joined": "2026-01-01T00:00:00Z"
-        }
-        return Response(user)
+        return Response(MOCK_USER_PROFILE)
+
+    def patch(self, request):
+        data = request.data or {}
+        for key in ["first_name", "last_name", "email", "phone"]:
+            if key in data:
+                MOCK_USER_PROFILE[key] = data[key]
+        return Response(MOCK_USER_PROFILE)
+
+    def put(self, request):
+        return self.patch(request)
 
 class AuthLogoutView(APIView):
     def post(self, request):

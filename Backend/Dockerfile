@@ -5,6 +5,8 @@ FROM python:3.10-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
+ENV PORT=8000
+
 # Set the working directory
 WORKDIR /app
 
@@ -15,8 +17,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application code
 COPY . /app/
 
-# Expose the port the app runs on
+# Expose port
 EXPOSE 8000
 
-# Run the Django server
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# Run gunicorn WSGI server
+CMD ["sh", "-c", "gunicorn lexicon_backend.wsgi:application --bind 0.0.0.0:${PORT:-8000}"]
