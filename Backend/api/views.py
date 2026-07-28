@@ -243,6 +243,68 @@ class AuthTokenRefreshView(APIView):
     def post(self, request):
         return Response({"access": "mock_access_token"})
 
+class AuthGoogleView(APIView):
+    def post(self, request):
+        data = request.data or {}
+        id_token = data.get("idToken") or data.get("credential") or data.get("token") or ""
+
+        email = "google.user@example.com"
+        first_name = "Google"
+        last_name = "User"
+        phone = "+65 9123 4567"
+        avatar = ""
+
+        if id_token:
+            try:
+                import json, base64
+                parts = id_token.split('.')
+                if len(parts) >= 2:
+                    payload_b64 = parts[1]
+                    payload_b64 += '=' * (-len(payload_b64) % 4)
+                    payload_bytes = base64.b64decode(payload_b64)
+                    payload = json.loads(payload_bytes.decode('utf-8'))
+
+                    email = payload.get("email", email)
+                    name_str = payload.get("name", "")
+                    name_parts = name_str.split() if name_str else []
+
+                    first_name = payload.get("given_name") or (name_parts[0] if name_parts else "Google")
+                    last_name = payload.get("family_name") or (" ".join(name_parts[1:]) if len(name_parts) > 1 else "")
+                    avatar = payload.get("picture", "")
+            except Exception as e:
+                print(f"Error decoding Google ID token: {e}")
+
+        username = email.split('@')[0] if email else "googleuser"
+        user, created = User.objects.get_or_create(
+            username=username,
+            defaults={"email": email, "first_name": first_name, "last_name": last_name}
+        )
+        if not created:
+            user.email = email
+            if first_name:
+                user.first_name = first_name
+            if last_name:
+                user.last_name = last_name
+            user.save()
+
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+        if avatar:
+            profile.avatar = avatar
+        if not profile.phone:
+            profile.phone = phone
+        profile.save()
+
+        serializer = UserSerializer(user)
+        tokens = {
+            "access": "mock_access_token",
+            "refresh": "mock_refresh_token"
+        }
+        return Response({
+            "tokens": tokens,
+            "token": "mock_access_token",
+            "user": serializer.data
+        })
+
 class OrderCreateView(APIView):
     def get(self, request):
         ensure_database_seeded()

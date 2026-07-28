@@ -9,6 +9,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<User>;
+  googleLogin: (idToken: string) => Promise<User>;
   register: (payload: Parameters<typeof authService.register>[0]) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (user: User) => void;
@@ -50,6 +51,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return user;
   }, []);
 
+  const googleLogin = useCallback(async (idToken: string) => {
+    const res = await authService.googleLogin(idToken);
+    const tokens = res.tokens || { access: (res as any).token || 'mock_access_token', refresh: 'mock_refresh_token' };
+    storeTokens(tokens);
+    setUser(res.user);
+    return res.user;
+  }, []);
+
   const register = useCallback(async (payload: Parameters<typeof authService.register>[0]) => {
     const { tokens, user } = await authService.register(payload);
     storeTokens(tokens);
@@ -76,7 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider
-      value={{ user, isAuthenticated: !!user, isLoading, login, register, logout, updateUser }}
+      value={{ user, isAuthenticated: !!user, isLoading, login, googleLogin, register, logout, updateUser }}
     >
       {children}
     </AuthContext.Provider>

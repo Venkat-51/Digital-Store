@@ -3,7 +3,7 @@ from .views import (
     CategoryListView, ProductListView, ProductImageView, ProductDetailView,
     ProductFeaturedView, ProductRelatedView, AuthRegisterView, AuthLoginView,
     AuthMeView, AuthLogoutView, AuthPasswordResetView, AuthPasswordResetConfirmView,
-    AuthTokenRefreshView, OrderCreateView, OrderDetailView, OrderInvoiceView,
+    AuthTokenRefreshView, AuthGoogleView, OrderCreateView, OrderDetailView, OrderInvoiceView,
     AddressListView, AddressDetailView, AddressSetDefaultView
 )
 
@@ -16,6 +16,8 @@ urlpatterns = [
     path('products/<int:product_id>/image/', ProductImageView.as_view(), name='product-image'),
     path('auth/register/', AuthRegisterView.as_view(), name='auth-register'),
     path('auth/login/', AuthLoginView.as_view(), name='auth-login'),
+    path('auth/google/', AuthGoogleView.as_view(), name='auth-google'),
+    path('auth/google', AuthGoogleView.as_view(), name='auth-google-no-slash'),
     path('auth/me/', AuthMeView.as_view(), name='auth-me'),
     path('auth/logout/', AuthLogoutView.as_view(), name='auth-logout'),
     path('auth/password/reset/', AuthPasswordResetView.as_view(), name='auth-password-reset'),
