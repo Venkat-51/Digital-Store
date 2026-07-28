@@ -77,6 +77,8 @@ class OrderItemSerializer(serializers.ModelSerializer):
     def get_total_price(self, obj):
         return f"{obj.total_price:.2f}"
 
+import urllib.parse
+
 class OrderSerializer(serializers.ModelSerializer):
     customer = serializers.SerializerMethodField()
     items = OrderItemSerializer(many=True, read_only=True)
@@ -84,14 +86,31 @@ class OrderSerializer(serializers.ModelSerializer):
     shipping_cost = serializers.SerializerMethodField()
     tax = serializers.SerializerMethodField()
     total = serializers.SerializerMethodField()
+    whatsapp_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
         fields = [
             'id', 'order_number', 'customer', 'items', 'status',
             'shipping_address', 'subtotal', 'shipping_cost', 'tax', 'total',
-            'created_at', 'updated_at'
+            'whatsapp_url', 'created_at', 'updated_at'
         ]
+
+    def get_whatsapp_url(self, obj):
+        target_phone = "919500882090"
+        items_summary = ", ".join([f"{item.product_name} (x{item.quantity})" for item in obj.items.all()]) or "Products"
+        msg = (
+            f"🧾 *NEW ORDER INVOICE - LEXICON TECHNOLOGY*\n\n"
+            f"📌 *Order Number*: {obj.order_number}\n"
+            f"👤 *Customer*: {obj.customer_name}\n"
+            f"📞 *Phone*: {obj.customer_phone}\n"
+            f"✉️ *Email*: {obj.customer_email}\n"
+            f"🛍️ *Items*: {items_summary}\n"
+            f"💰 *Total Amount*: SGD ${obj.total:.2f}\n"
+            f"Status: {obj.status.upper()}\n\n"
+            f"📄 *Download Invoice*: https://lexicon-self.vercel.app/orders/{obj.order_number}\n"
+        )
+        return f"https://api.whatsapp.com/send?phone={target_phone}&text={urllib.parse.quote(msg)}"
 
     def get_customer(self, obj):
         return {
