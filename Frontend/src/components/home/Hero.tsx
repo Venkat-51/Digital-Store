@@ -62,7 +62,7 @@ const Hero: React.FC = () => {
       <div ref={orbRef} className="absolute top-1/3 right-0 w-[400px] h-[400px] bg-secondary-100/30 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 left-1/3 w-[300px] h-[300px] bg-primary-50/60 rounded-full blur-2xl pointer-events-none" />
 
-      <div className="container-wide relative z-10 py-20">
+      <div className="container-wide relative z-10 py-10 lg:py-20">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           {/* Left Column — Text */}
           <motion.div

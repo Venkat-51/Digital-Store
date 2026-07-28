@@ -66,7 +66,7 @@ const HeroCarousel = () => {
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.3 }}
-              className="text-4xl md:text-6xl font-black tracking-tight mb-4"
+              className="text-2xl sm:text-4xl md:text-6xl font-black tracking-tight mb-2 sm:mb-4"
             >
               {BANNER_IMAGES[currentIndex].title}
             </motion.h2>
@@ -74,7 +74,7 @@ const HeroCarousel = () => {
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.5 }}
-              className="text-lg md:text-2xl font-medium mb-8 text-gray-200 max-w-2xl"
+              className="text-xs sm:text-lg md:text-2xl font-medium mb-3 sm:mb-8 text-gray-200 max-w-2xl"
             >
               {BANNER_IMAGES[currentIndex].subtitle}
             </motion.p>
@@ -83,13 +83,24 @@ const HeroCarousel = () => {
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.7 }}
             >
-              <Button
-                variant="primary"
-                size="xl"
-                onClick={() => window.location.href = ROUTES.SHOP}
-              >
-                Shop Now
-              </Button>
+              <div className="sm:hidden">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => window.location.href = ROUTES.SHOP}
+                >
+                  Shop Now
+                </Button>
+              </div>
+              <div className="hidden sm:block">
+                <Button
+                  variant="primary"
+                  size="xl"
+                  onClick={() => window.location.href = ROUTES.SHOP}
+                >
+                  Shop Now
+                </Button>
+              </div>
             </motion.div>
           </div>
         </motion.div>
@@ -97,27 +108,27 @@ const HeroCarousel = () => {
 
       <button 
         onClick={prevSlide}
-        className="absolute left-4 top-1/2 -translate-y-1/2 z-30 p-3 bg-black/30 hover:bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all backdrop-blur-sm"
+        className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-30 p-2 sm:p-3 bg-black/30 hover:bg-black/60 text-white rounded-full opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition-all backdrop-blur-sm"
         aria-label="Previous slide"
       >
-        <ChevronLeft size={24} />
+        <ChevronLeft className="w-4 h-4 sm:w-6 sm:h-6" />
       </button>
       <button 
         onClick={nextSlide}
-        className="absolute right-4 top-1/2 -translate-y-1/2 z-30 p-3 bg-black/30 hover:bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all backdrop-blur-sm"
+        className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-30 p-2 sm:p-3 bg-black/30 hover:bg-black/60 text-white rounded-full opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition-all backdrop-blur-sm"
         aria-label="Next slide"
       >
-        <ChevronRight size={24} />
+        <ChevronRight className="w-4 h-4 sm:w-6 sm:h-6" />
       </button>
 
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex gap-2">
+      <div className="absolute bottom-3 sm:bottom-6 left-1/2 -translate-x-1/2 z-30 flex gap-2">
         {BANNER_IMAGES.map((_, i) => (
           <button
             key={i}
             onClick={() => setCurrentIndex(i)}
             aria-label={`Go to slide ${i + 1}`}
-            className={`h-2 rounded-full transition-all duration-300 ${
-              i === currentIndex ? 'w-8 bg-primary-500' : 'w-2 bg-white/50 hover:bg-white/80'
+            className={`h-1.5 sm:h-2 rounded-full transition-all duration-300 ${
+              i === currentIndex ? 'w-6 sm:w-8 bg-primary-500' : 'w-1.5 sm:w-2 bg-white/50 hover:bg-white/80'
             }`}
           />
         ))}

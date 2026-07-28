@@ -22,7 +22,6 @@
     "noUnusedParameters": false,
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
-
     "ignoreDeprecations": "6.0",
 
     /* Path aliases */
