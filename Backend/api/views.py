@@ -66,7 +66,25 @@ def get_authenticated_user(request):
                     return user
     return None
 
+
+def is_admin_user(user):
+    """
+    Returns True if user is authenticated and (user.is_staff or user.is_superuser or matches ADMIN_EMAIL env).
+    Auto-syncs user.is_staff = True if user.email matches ADMIN_EMAIL.
+    """
+    if not user or not user.is_authenticated:
+        return False
+    admin_email = os.environ.get("ADMIN_EMAIL", "gvenkateswaran3@gmail.com").strip().lower()
+    user_email = (user.email or "").strip().lower()
+    if user_email and user_email == admin_email:
+        if not user.is_staff:
+            user.is_staff = True
+            user.save(update_fields=['is_staff'])
+        return True
+    return bool(user.is_staff or user.is_superuser)
+
 def sync_user_phone(user):
+
     """Sync profile phone with existing address or order phone if blank or default."""
     if not user:
         return
@@ -534,6 +552,7 @@ class AuthRegisterView(APIView):
                 profile.phone = phone
                 profile.save()
 
+        is_admin_user(user)
         sync_user_phone(user)
         tokens = generate_tokens_for_user(user)
         serializer = UserSerializer(user)
@@ -568,6 +587,7 @@ class AuthLoginView(APIView):
                     user.set_password(password)
                     user.save()
 
+        is_admin_user(user)
         sync_user_phone(user)
         tokens = generate_tokens_for_user(user)
         serializer = UserSerializer(user)
@@ -630,6 +650,7 @@ class AuthGoogleView(APIView):
                 profile.avatar = avatar
             profile.save()
 
+        is_admin_user(user)
         sync_user_phone(user)
         tokens = generate_tokens_for_user(user)
         serializer = UserSerializer(user)
@@ -644,9 +665,11 @@ class AuthMeView(APIView):
         user = get_authenticated_user(request)
         if not user:
             return Response({"error": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
+        is_admin_user(user)
         sync_user_phone(user)
         serializer = UserSerializer(user)
         return Response(serializer.data)
+
 
     def patch(self, request):
         user = get_authenticated_user(request)
@@ -1086,6 +1109,10 @@ class WishlistView(APIView):
 
 class ProductCSVTemplateView(APIView):
     def get(self, request):
+        user = get_authenticated_user(request)
+        if not is_admin_user(user):
+            return Response({"error": "Forbidden: Bulk order features are restricted to administrator accounts."}, status=status.HTTP_403_FORBIDDEN)
+
         response = HttpResponse(content_type='text/csv; charset=utf-8')
         response['Content-Disposition'] = 'attachment; filename="products_bulk_upload_template.csv"'
 
@@ -1112,7 +1139,12 @@ class ProductCSVTemplateView(APIView):
 
 class ProductBulkUploadView(APIView):
     def post(self, request):
+        user = get_authenticated_user(request)
+        if not is_admin_user(user):
+            return Response({"error": "Forbidden: Bulk order features are restricted to administrator accounts."}, status=status.HTTP_403_FORBIDDEN)
+
         csv_file = request.FILES.get('file') or request.FILES.get('csv_file')
+
         if not csv_file:
             return Response({"error": "No file uploaded. Please provide a CSV file."}, status=status.HTTP_400_BAD_REQUEST)
 

@@ -90,13 +90,26 @@ const Navbar: React.FC = () => {
                 alt="Lexicon Technology"
                 className="h-7 sm:h-8 lg:h-9 w-auto object-contain flex-shrink-0"
               />
-              <img
-                src="/bulk order-1.png"
-                alt="Bulk Order"
-                className="h-7 sm:h-9 lg:h-11 w-auto object-contain flex-shrink-0"
-              />
+              {user?.is_staff && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setIsBulkUploadModalOpen(true);
+                  }}
+                  title="Bulk Order Upload (Admin Only)"
+                  className="cursor-pointer hover:opacity-90 transition-opacity flex-shrink-0"
+                >
+                  <img
+                    src="/bulk order-1.png"
+                    alt="Bulk Order"
+                    className="h-7 sm:h-9 lg:h-11 w-auto object-contain"
+                  />
+                </button>
+              )}
             </Link>
           </div>
+
 
           {/* Search Bar - Desktop */}
           <div className="hidden lg:flex flex-1 min-w-0 relative z-20">
@@ -192,17 +205,20 @@ const Navbar: React.FC = () => {
                             <Package size={16} className="text-gray-400" />
                             My Orders
                           </Link>
-                          <button
-                            onClick={() => {
-                              setIsProfileOpen(false);
-                              setIsBulkUploadModalOpen(true);
-                            }}
-                            className="w-full flex items-center gap-3 px-4 py-2 text-sm text-primary-700 hover:bg-primary-50 transition-colors font-semibold text-left cursor-pointer"
-                          >
-                            <Upload size={16} className="text-primary-600" />
-                            Bulk Import CSV
-                          </button>
+                          {user?.is_staff && (
+                            <button
+                              onClick={() => {
+                                setIsProfileOpen(false);
+                                setIsBulkUploadModalOpen(true);
+                              }}
+                              className="w-full flex items-center gap-3 px-4 py-2 text-sm text-primary-700 hover:bg-primary-50 transition-colors font-semibold text-left cursor-pointer"
+                            >
+                              <Upload size={16} className="text-primary-600" />
+                              Bulk Import CSV
+                            </button>
+                          )}
                         </div>
+
 
                         <button
                           onClick={handleLogout}

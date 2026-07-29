@@ -9,6 +9,7 @@ import { Select } from '@/components/ui/Input';
 import { SORT_OPTIONS, CONFIG, NAV_CATEGORIES } from '@/constants/config';
 import type { ProductFilters } from '@/types/product.types';
 import { cn } from '@/utils/helpers';
+import { useAuth } from '@/hooks/useAuth';
 import { BulkProductUploadModal } from '@/components/admin/BulkProductUploadModal';
 
 const PRICE_RANGES = [
@@ -21,10 +22,12 @@ const PRICE_RANGES = [
 ];
 
 const ShopPage: React.FC = () => {
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const { slug } = useParams();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+
 
   const page = Number(searchParams.get('page') ?? '1');
   const ordering = searchParams.get('ordering') ?? '';
@@ -194,16 +197,19 @@ const ShopPage: React.FC = () => {
               )}
             </div>
             <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
-              {/* Bulk Upload CSV */}
-              <Button
-                variant="primary"
-                size="sm"
-                leftIcon={<Upload size={14} />}
-                onClick={() => setIsBulkModalOpen(true)}
-                className="flex-shrink-0 text-xs sm:text-sm py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl shadow-xs"
-              >
-                Bulk Upload CSV
-              </Button>
+              {/* Bulk Upload CSV (Admin Only) */}
+              {user?.is_staff && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  leftIcon={<Upload size={14} />}
+                  onClick={() => setIsBulkModalOpen(true)}
+                  className="flex-shrink-0 text-xs sm:text-sm py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl shadow-xs"
+                >
+                  Bulk Upload CSV
+                </Button>
+              )}
+
 
               {/* Sort */}
               <select
