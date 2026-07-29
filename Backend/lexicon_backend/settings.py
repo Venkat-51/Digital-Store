@@ -52,6 +52,13 @@ INSTALLED_APPS = [
     'api',
 ]
 
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'api.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+}
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -89,9 +96,11 @@ WSGI_APPLICATION = 'lexicon_backend.wsgi.application'
 DATABASES = {
     "default": dj_database_url.config(
         default=os.environ.get("DATABASE_URL") or f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
-        conn_max_age=600,
+        conn_max_age=0,
+        conn_health_checks=True,
     )
 }
+
 
 
 # Password validation

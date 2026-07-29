@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSearchParams, useParams } from 'react-router-dom';
-import { SlidersHorizontal, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { SlidersHorizontal, X, ChevronDown, ChevronUp, Upload } from 'lucide-react';
 import { useProducts } from '@/hooks/useProducts';
 import ProductGrid from '@/components/product/ProductGrid';
 import { Breadcrumb, Pagination } from '@/components/ui/Navigation';
@@ -9,6 +9,7 @@ import { Select } from '@/components/ui/Input';
 import { SORT_OPTIONS, CONFIG, NAV_CATEGORIES } from '@/constants/config';
 import type { ProductFilters } from '@/types/product.types';
 import { cn } from '@/utils/helpers';
+import { BulkProductUploadModal } from '@/components/admin/BulkProductUploadModal';
 
 const PRICE_RANGES = [
   { label: 'All Prices', min: undefined, max: undefined },
@@ -23,6 +24,7 @@ const ShopPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { slug } = useParams();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
 
   const page = Number(searchParams.get('page') ?? '1');
   const ordering = searchParams.get('ordering') ?? '';
@@ -192,6 +194,17 @@ const ShopPage: React.FC = () => {
               )}
             </div>
             <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+              {/* Bulk Upload CSV */}
+              <Button
+                variant="primary"
+                size="sm"
+                leftIcon={<Upload size={14} />}
+                onClick={() => setIsBulkModalOpen(true)}
+                className="flex-shrink-0 text-xs sm:text-sm py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl shadow-xs"
+              >
+                Bulk Upload CSV
+              </Button>
+
               {/* Sort */}
               <select
                 value={ordering}
@@ -298,8 +311,15 @@ const ShopPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Bulk Upload Modal */}
+      <BulkProductUploadModal
+        isOpen={isBulkModalOpen}
+        onClose={() => setIsBulkModalOpen(false)}
+      />
     </div>
   );
 };
+
 
 export default ShopPage;

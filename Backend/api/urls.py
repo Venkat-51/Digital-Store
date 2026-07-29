@@ -4,12 +4,15 @@ from .views import (
     ProductFeaturedView, ProductRelatedView, AuthRegisterView, AuthLoginView,
     AuthMeView, AuthLogoutView, AuthPasswordResetView, AuthPasswordResetConfirmView,
     AuthTokenRefreshView, AuthGoogleView, OrderCreateView, OrderDetailView, OrderCancelView, OrderInvoiceView,
-    AddressListView, AddressDetailView, AddressSetDefaultView
+    AddressListView, AddressDetailView, AddressSetDefaultView, WishlistView,
+    ProductCSVTemplateView, ProductBulkUploadView
 )
 
 urlpatterns = [
     path('categories/', CategoryListView.as_view(), name='category-list'),
     path('products/', ProductListView.as_view(), name='product-list'),
+    path('products/csv-template/', ProductCSVTemplateView.as_view(), name='product-csv-template'),
+    path('products/bulk-upload/', ProductBulkUploadView.as_view(), name='product-bulk-upload'),
     path('products/featured/', ProductFeaturedView.as_view(), name='product-featured'),
     path('products/<int:product_id>/related/', ProductRelatedView.as_view(), name='product-related'),
     path('products/<slug:slug>/', ProductDetailView.as_view(), name='product-detail'),
@@ -32,4 +35,8 @@ urlpatterns = [
     path('addresses/', AddressListView.as_view(), name='address-list'),
     path('addresses/<int:pk>/', AddressDetailView.as_view(), name='address-detail'),
     path('addresses/<int:pk>/set-default/', AddressSetDefaultView.as_view(), name='address-set-default'),
+    path('wishlist/', WishlistView.as_view(), name='wishlist-list'),
+    path('wishlist/<int:item_id>/', WishlistView.as_view(), name='wishlist-detail'),
 ]
+
+

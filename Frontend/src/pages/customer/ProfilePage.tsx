@@ -431,7 +431,7 @@ const ProfilePage: React.FC = () => {
               type="tel"
               disabled={!editingPhone}
               {...register('phone')}
-              placeholder="+65 Mobile Number"
+              placeholder="Mobile Number (e.g. +65 9123 4567)"
               className="w-full bg-gray-50 border border-gray-200 rounded-sm px-4 py-3 text-sm font-semibold text-gray-800 outline-none focus:bg-white focus:border-primary-600 disabled:bg-gray-100/70 disabled:text-gray-600 transition-all"
             />
 

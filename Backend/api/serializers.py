@@ -93,8 +93,9 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'order_number', 'customer', 'items', 'status',
             'shipping_address', 'subtotal', 'shipping_cost', 'tax', 'total',
-            'whatsapp_url', 'created_at', 'updated_at'
+            'email_sent', 'whatsapp_sent', 'whatsapp_url', 'created_at', 'updated_at'
         ]
+
 
     def get_whatsapp_url(self, obj):
         target_phone = "919500882090"
@@ -145,11 +146,26 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ['id', 'email', 'first_name', 'last_name', 'phone', 'avatar', 'is_staff', 'is_active', 'date_joined']
 
     def get_phone(self, obj):
-        if hasattr(obj, 'profile') and obj.profile.phone:
+        if hasattr(obj, 'profile') and obj.profile.phone and obj.profile.phone != "+65 9123 4567":
             return obj.profile.phone
-        return "+65 9123 4567"
+        if hasattr(obj, 'addresses'):
+            addr = obj.addresses.filter(is_default=True).first() or obj.addresses.first()
+            if addr and addr.phone and addr.phone != "+65 9123 4567":
+                return addr.phone
+        if hasattr(obj, 'orders'):
+            ord_obj = obj.orders.order_by('-created_at').first()
+            if ord_obj and ord_obj.customer_phone and ord_obj.customer_phone != "+65 9123 4567":
+                return ord_obj.customer_phone
+        return ""
 
     def get_avatar(self, obj):
         if hasattr(obj, 'profile') and obj.profile.avatar:
             return obj.profile.avatar
         return ""
+
+class WishlistItemSerializer(serializers.ModelSerializer):
+    product = ProductSerializer(read_only=True)
+
+    class Meta:
+        model = WishlistItem
+        fields = ['id', 'product', 'created_at']

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { CheckCircle, Package, ArrowRight, ShoppingBag } from 'lucide-react';
+import { CheckCircle, Package, ArrowRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { ordersService } from '@/services/orders.service';
 import { QUERY_KEYS } from '@/constants/queryKeys';
@@ -24,32 +24,6 @@ const OrderSuccessPage: React.FC = () => {
     // Fire confetti
     confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#2563eb', '#f97316', '#22c55e'] });
   }, []);
-
-  // Auto-trigger WhatsApp invoice sending when order is loaded
-  const hasTriggeredRef = React.useRef(false);
-  React.useEffect(() => {
-    if (order && orderNumber && !hasTriggeredRef.current) {
-      hasTriggeredRef.current = true;
-      const targetPhone = "919500882090";
-      const itemsSummary = order.items?.map(i => `${i.product_name || i.product?.name} (x${i.quantity})`).join(', ') || 'Items';
-      const msg = (
-        `🧾 *NEW ORDER INVOICE - LEXICON TECHNOLOGY*\n\n` +
-        `📌 *Order Number*: #${orderNumber}\n` +
-        `👤 *Customer*: ${order.customer_name || 'Customer'}\n` +
-        `📞 *Phone*: ${order.customer_phone || ''}\n` +
-        `🛍️ *Items*: ${itemsSummary}\n` +
-        `💰 *Total Amount*: SGD $${order.total}\n` +
-        `Status: ${order.status?.toUpperCase() || 'CONFIRMED'}\n\n` +
-        `📄 *Download Invoice PDF*: https://lexicon-self.vercel.app/orders/${orderNumber}\n`
-      );
-      const waUrl = order.whatsapp_url || `https://api.whatsapp.com/send?phone=${targetPhone}&text=${encodeURIComponent(msg)}`;
-      
-      const timer = setTimeout(() => {
-        window.open(waUrl, '_blank');
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [order, orderNumber]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary-50 to-white flex items-center justify-center px-4 py-16">
@@ -76,7 +50,7 @@ const OrderSuccessPage: React.FC = () => {
         >
           <h1 className="text-3xl font-black text-gray-900 mb-2">Order Placed!</h1>
           <p className="text-gray-500 mb-6">
-            Thank you for your order. We'll send you a confirmation email & WhatsApp invoice shortly.
+            Thank you for your order. Invoice PDF has been generated and dispatched to email & WhatsApp.
           </p>
 
           {/* Order number */}

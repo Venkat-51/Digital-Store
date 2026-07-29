@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ShoppingCart, Heart, Search, Menu, X, ChevronDown, ChevronRight,
   User, Monitor, HardDrive, Gamepad2, Wifi, Briefcase, BatteryCharging,
-  LogOut, Settings, LayoutDashboard, Package, CheckCircle, Compass
+  LogOut, Settings, LayoutDashboard, Package, CheckCircle, Compass, Upload
 } from 'lucide-react';
 import { cn } from '@/utils/helpers';
 import { useCart } from '@/hooks/useCart';
@@ -15,6 +15,8 @@ import { ROUTES } from '@/constants/routes';
 import { NAV_CATEGORIES } from '@/constants/config';
 import { Button } from '@/components/ui/Button';
 import { TrackOrderModal } from '@/components/common/TrackOrderModal';
+import { BulkProductUploadModal } from '@/components/admin/BulkProductUploadModal';
+
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   'computer-accessories': <Monitor size={20} />,
@@ -32,6 +34,7 @@ const Navbar: React.FC = () => {
   const [isMegaOpen, setIsMegaOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isTrackModalOpen, setIsTrackModalOpen] = useState(false);
+  const [isBulkUploadModalOpen, setIsBulkUploadModalOpen] = useState(false);
 
   const [searchCategory, setSearchCategory] = useState('All');
   const [isSearchCatOpen, setIsSearchCatOpen] = useState(false);
@@ -189,6 +192,16 @@ const Navbar: React.FC = () => {
                             <Package size={16} className="text-gray-400" />
                             My Orders
                           </Link>
+                          <button
+                            onClick={() => {
+                              setIsProfileOpen(false);
+                              setIsBulkUploadModalOpen(true);
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-2 text-sm text-primary-700 hover:bg-primary-50 transition-colors font-semibold text-left cursor-pointer"
+                          >
+                            <Upload size={16} className="text-primary-600" />
+                            Bulk Import CSV
+                          </button>
                         </div>
 
                         <button
@@ -592,8 +605,10 @@ const Navbar: React.FC = () => {
       </AnimatePresence>
 
       <TrackOrderModal isOpen={isTrackModalOpen} onClose={() => setIsTrackModalOpen(false)} />
+      <BulkProductUploadModal isOpen={isBulkUploadModalOpen} onClose={() => setIsBulkUploadModalOpen(false)} />
     </>
   );
 };
+
 
 export default Navbar;

@@ -9,3 +9,5 @@ reportlab>=4.0.0
 asgiref>=3.8.0
 sqlparse>=0.5.0
 tzdata>=2026.1
+pyjwt>=2.8.0
+

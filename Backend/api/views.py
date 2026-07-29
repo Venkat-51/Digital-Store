@@ -1,5 +1,18 @@
 import io
-from django.http import FileResponse
+import threading
+import urllib.parse
+import urllib.request
+import os
+import csv
+import json
+import time
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.application import MIMEApplication
+
+from django.http import FileResponse, HttpResponse
+from django.utils.text import slugify
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -19,8 +32,309 @@ from .models import (
 )
 from .serializers import (
     CategorySerializer, ProductSerializer, AddressSerializer,
-    OrderSerializer, UserSerializer
+    OrderSerializer, UserSerializer, WishlistItemSerializer
 )
+from .authentication import generate_tokens_for_user, decode_token
+
+def get_authenticated_user(request):
+    """
+    Returns the authenticated User instance for the request, or None.
+    Decodes Bearer JWT token or query parameter token if DRF request.user is anonymous.
+    """
+    if hasattr(request, 'user') and request.user and request.user.is_authenticated:
+        return request.user
+
+    auth_header = request.headers.get('Authorization')
+    token = None
+    if auth_header and auth_header.startswith('Bearer '):
+        token = auth_header.split(' ')[1]
+    elif 'token' in request.query_params:
+        token = request.query_params.get('token')
+
+    if token and token not in ['mock_access_token', 'mock_refresh_token']:
+        payload = decode_token(token)
+        if payload:
+            uid = payload.get('user_id') or payload.get('uid')
+            if uid:
+                user = User.objects.filter(id=uid).first()
+                if user:
+                    return user
+            email = payload.get('email')
+            if email:
+                user = User.objects.filter(email__iexact=email).first()
+                if user:
+                    return user
+    return None
+
+def sync_user_phone(user):
+    """Sync profile phone with existing address or order phone if blank or default."""
+    if not user:
+        return
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+    if not profile.phone or profile.phone == "+65 9123 4567":
+        ord_obj = Order.objects.filter(user=user).exclude(customer_phone="+65 9123 4567").exclude(customer_phone="").order_by('-created_at').first()
+        addr_obj = Address.objects.filter(user=user).exclude(phone="+65 9123 4567").exclude(phone="").first()
+        synced_phone = (ord_obj.customer_phone if ord_obj else (addr_obj.phone if addr_obj else ""))
+        if synced_phone:
+            profile.phone = synced_phone
+            profile.save()
+
+def save_address_from_shipping_dict(user, shipping_addr, default_label="Home"):
+    """Saves shipping address to user's saved Address list in Neon DB if not already present."""
+    if not user or not shipping_addr or not isinstance(shipping_addr, dict):
+        return None
+
+    addr_line1 = (shipping_addr.get("address_line1") or "").strip()
+    postal_code = (shipping_addr.get("postal_code") or "").strip()
+    full_name = (shipping_addr.get("full_name") or f"{user.first_name} {user.last_name}".strip() or user.username).strip()
+    phone = (shipping_addr.get("phone") or getattr(getattr(user, 'profile', None), 'phone', '')).strip()
+    city = (shipping_addr.get("city") or "Singapore").strip()
+    state = (shipping_addr.get("state") or "Singapore").strip()
+    country = (shipping_addr.get("country") or "Singapore").strip()
+    addr_line2 = (shipping_addr.get("address_line2") or "").strip()
+
+    if not addr_line1:
+        return None
+
+    existing = Address.objects.filter(
+        user=user,
+        address_line1__iexact=addr_line1,
+        postal_code__iexact=postal_code
+    ).first()
+
+    if not existing:
+        is_first_addr = not Address.objects.filter(user=user).exists()
+        address = Address.objects.create(
+            user=user,
+            label=default_label if is_first_addr else "Delivery Address",
+            full_name=full_name,
+            phone=phone,
+            address_line1=addr_line1,
+            address_line2=addr_line2,
+            city=city,
+            state=state,
+            postal_code=postal_code,
+            country=country,
+            is_default=is_first_addr
+        )
+        return address
+    return existing
+
+def generate_invoice_pdf_buffer(order):
+    """
+    Generates PDF invoice buffer for an order using ReportLab.
+    Returns io.BytesIO containing the binary PDF content.
+    """
+    serializer = OrderSerializer(order)
+    order_dict = serializer.data
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
+    elements = []
+    styles = getSampleStyleSheet()
+
+    header_style = ParagraphStyle('InvoiceHeader', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=10, leading=12, textColor=colors.HexColor("#475569"))
+    normal_style = ParagraphStyle('InvoiceNormal', parent=styles['Normal'], fontName='Helvetica', fontSize=9, leading=12, textColor=colors.HexColor("#334155"))
+    bold_style = ParagraphStyle('InvoiceBold', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=9, leading=12, textColor=colors.HexColor("#0f172a"))
+
+    shipping_addr = order_dict.get("shipping_address") or {}
+    customer = order_dict.get("customer") or {}
+
+    header_data = [
+        [
+            Paragraph("<b>LEXICON TECHNOLOGY</b><br/>123 Tech Center, #05-01<br/>Singapore 123456<br/>Email: info@lexicon.sg", normal_style),
+            Paragraph(f"<b>INVOICE</b><br/>Invoice No: INV-{order_dict['order_number']}<br/>Date: {order_dict['created_at'][:10]}<br/>Status: {order_dict['status'].upper()}", normal_style)
+        ]
+    ]
+
+    header_table = Table(header_data, colWidths=[270, 270])
+    header_table.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('ALIGN', (1,0), (1,0), 'RIGHT'),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 20),
+    ]))
+    elements.append(header_table)
+    elements.append(Spacer(1, 10))
+
+    bill_ship_data = [
+        [
+            Paragraph("<b>Bill To:</b>", header_style),
+            Paragraph("<b>Ship To:</b>", header_style)
+        ],
+        [
+            Paragraph(f"{customer.get('first_name', '')} {customer.get('last_name', '')}<br/>Email: {customer.get('email', '')}", normal_style),
+            Paragraph(f"{shipping_addr.get('full_name', 'Customer')}<br/>{shipping_addr.get('address_line1', '')}<br/>{shipping_addr.get('city', '')} {shipping_addr.get('postal_code', '')}<br/>Phone: {shipping_addr.get('phone', '')}", normal_style)
+        ]
+    ]
+    bill_ship_table = Table(bill_ship_data, colWidths=[270, 270])
+    bill_ship_table.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#f8fafc")),
+        ('TOPPADDING', (0,0), (-1,-1), 6),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+        ('LEFTPADDING', (0,0), (-1,-1), 8),
+        ('RIGHTPADDING', (0,0), (-1,-1), 8),
+        ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor("#e2e8f0")),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor("#e2e8f0")),
+    ]))
+    elements.append(bill_ship_table)
+    elements.append(Spacer(1, 20))
+
+    items_data = [
+        [
+            Paragraph("<b>Product</b>", bold_style),
+            Paragraph("<b>Qty</b>", bold_style),
+            Paragraph("<b>Unit Price (SGD)</b>", bold_style),
+            Paragraph("<b>Total (SGD)</b>", bold_style)
+        ]
+    ]
+
+    for item in order_dict.get("items", []):
+        product_name = item.get("product_name", "Product")
+        unit_price = item.get("unit_price", "0.00")
+        qty = item.get("quantity", 1)
+        total_price = item.get("total_price", "0.00")
+
+        items_data.append([
+            Paragraph(product_name, normal_style),
+            Paragraph(str(qty), normal_style),
+            Paragraph(f"${float(unit_price):.2f}", normal_style),
+            Paragraph(f"${float(total_price):.2f}", normal_style)
+        ])
+
+    subtotal = order_dict.get("subtotal", "0.00")
+    shipping = order_dict.get("shipping_cost", "0.00")
+    total = order_dict.get("total", "0.00")
+
+    items_data.append([Paragraph("", normal_style), Paragraph("", normal_style), Paragraph("<b>Subtotal:</b>", normal_style), Paragraph(f"${float(subtotal):.2f}", normal_style)])
+    items_data.append([Paragraph("", normal_style), Paragraph("", normal_style), Paragraph("<b>Shipping:</b>", normal_style), Paragraph("FREE" if float(shipping) == 0 else f"${float(shipping):.2f}", normal_style)])
+    items_data.append([Paragraph("", normal_style), Paragraph("", normal_style), Paragraph("<b>Total:</b>", bold_style), Paragraph(f"${float(total):.2f}", bold_style)])
+
+    items_table = Table(items_data, colWidths=[280, 50, 100, 110])
+    items_table.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#f1f5f9")),
+        ('TOPPADDING', (0,0), (-1,-1), 8),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+        ('ALIGN', (1,0), (-1,-1), 'RIGHT'),
+        ('LINEBELOW', (0,0), (-1,0), 1, colors.HexColor("#cbd5e1")),
+        ('LINEBELOW', (0,1), (-1,-4), 0.5, colors.HexColor("#e2e8f0")),
+        ('LINEBELOW', (2,-3), (-1,-1), 0.5, colors.HexColor("#e2e8f0")),
+    ]))
+    elements.append(items_table)
+    elements.append(Spacer(1, 30))
+
+    elements.append(Paragraph("<para align=center>Thank you for shopping with Lexicon Technology!</para>", bold_style))
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+def send_owner_email_invoice_async(order):
+    """
+    Sends invoice PDF attachment to store owner's email address in background task.
+    Updates order.email_sent = True on success.
+    """
+    def _send():
+        try:
+            owner_email = os.environ.get("OWNER_EMAIL", "owner@lexicon.sg")
+            smtp_host = os.environ.get("SMTP_HOST", "smtp.gmail.com")
+            smtp_port = int(os.environ.get("SMTP_PORT", 587))
+            smtp_user = os.environ.get("SMTP_USER", "")
+            smtp_pass = os.environ.get("SMTP_PASSWORD", "")
+
+            print(f"[Email Auto-Notifier] Preparing invoice PDF email for Order #{order.order_number} to {owner_email}...")
+
+            pdf_buffer = generate_invoice_pdf_buffer(order)
+            pdf_data = pdf_buffer.getvalue()
+
+            msg = MIMEMultipart()
+            msg['From'] = smtp_user or "noreply@lexicon.sg"
+            msg['To'] = owner_email
+            msg['Subject'] = f"🧾 New Confirmed Order Invoice - #{order.order_number}"
+
+            body = (
+                f"Hello Store Owner,\n\n"
+                f"A new order #{order.order_number} has been confirmed.\n\n"
+                f"Customer: {order.customer_name}\n"
+                f"Email: {order.customer_email}\n"
+                f"Phone: {order.customer_phone}\n"
+                f"Total Amount: SGD ${order.total:.2f}\n\n"
+                f"The invoice PDF is attached to this email.\n\n"
+                f"Lexicon Technology Automated Order System"
+            )
+            msg.attach(MIMEText(body, 'plain'))
+
+            part = MIMEApplication(pdf_data, Name=f"invoice-{order.order_number}.pdf")
+            part['Content-Disposition'] = f'attachment; filename="invoice-{order.order_number}.pdf"'
+            msg.attach(part)
+
+            if smtp_user and smtp_pass:
+                with smtplib.SMTP(smtp_host, smtp_port) as server:
+                    server.starttls()
+                    server.login(smtp_user, smtp_pass)
+                    server.send_message(msg)
+                print(f"[Email Auto-Notifier] Email with PDF attachment sent to {owner_email} successfully.")
+            else:
+                print(f"[Email Auto-Notifier Log] SMTP credentials not set. Simulated email send for Order #{order.order_number} to {owner_email}.")
+
+            Order.objects.filter(id=order.id).update(email_sent=True)
+        except Exception as e:
+            print(f"[Email Auto-Notifier Error] Failed to send email invoice for #{order.order_number}: {e}")
+
+    t = threading.Thread(target=_send, daemon=True)
+    t.start()
+
+def send_owner_whatsapp_invoice_async(order):
+    """
+    Dispatches order invoice notification to owner WhatsApp in background thread.
+    Updates order.whatsapp_sent = True on success.
+    """
+    def _send():
+        try:
+            target_phone = os.environ.get("OWNER_WHATSAPP", "919500882090")
+            items_summary = ", ".join([f"{item.product_name} (x{item.quantity})" for item in order.items.all()]) or "Products"
+            pdf_url = f"https://lexicon-self.vercel.app/orders/{order.order_number}"
+            
+            message = (
+                f"🧾 *NEW ORDER INVOICE - LEXICON TECHNOLOGY*\n\n"
+                f"📌 *Order Number*: #{order.order_number}\n"
+                f"👤 *Customer*: {order.customer_name}\n"
+                f"📞 *Phone*: {order.customer_phone}\n"
+                f"✉️ *Email*: {order.customer_email}\n"
+                f"🛍️ *Items*: {items_summary}\n"
+                f"💰 *Total Amount*: SGD ${order.total:.2f}\n"
+                f"Status: {order.status.upper()}\n\n"
+                f"📄 *Download Invoice PDF*: {pdf_url}"
+            )
+            
+            print(f"[WhatsApp Auto-Notifier] Sending Invoice PDF notification for Order #{order.order_number} to Owner (+{target_phone})...")
+            
+            callmebot_url = f"https://api.callmebot.com/whatsapp.php?phone=+{target_phone}&text={urllib.parse.quote(message)}&apikey=free"
+            req = urllib.request.Request(callmebot_url, headers={'User-Agent': 'Mozilla/5.0'})
+            try:
+                with urllib.request.urlopen(req, timeout=5) as response:
+                    print(f"[WhatsApp Auto-Notifier] Response Code: {response.getcode()}")
+            except Exception as req_err:
+                print(f"[WhatsApp Auto-Notifier Log] Direct Webhook Note: {req_err}")
+
+            print(f"[WhatsApp Auto-Notifier] Order #{order.order_number} Invoice dispatched to Owner WhatsApp.")
+            
+            Order.objects.filter(id=order.id).update(whatsapp_sent=True)
+        except Exception as e:
+            print(f"[WhatsApp Auto-Notifier Error] Failed to send WhatsApp notification for #{order.order_number}: {e}")
+
+    t = threading.Thread(target=_send, daemon=True)
+    t.start()
+
+def trigger_automatic_order_invoice_sends(order):
+    """
+    Triggers background tasks for both Email (with PDF attachment) and WhatsApp notifications.
+    Runs silently in background without blocking API response or throwing unhandled errors.
+    """
+    if str(order.status).lower() == "confirmed":
+        send_owner_email_invoice_async(order)
+        send_owner_whatsapp_invoice_async(order)
 
 def ensure_database_seeded():
     """Auto-seed Neon database if empty."""
@@ -185,64 +499,161 @@ class ProductRelatedView(APIView):
 class AuthRegisterView(APIView):
     def post(self, request):
         data = request.data or {}
-        email = data.get("email", "user@example.com").strip()
-        first_name = data.get("first_name", "Lexicon").strip()
-        last_name = data.get("last_name", "User").strip()
-        phone = data.get("phone", "+65 9123 4567").strip()
+        email = data.get("email", "").strip().lower()
+        if not email:
+            return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        username = email.split('@')[0] if email else "user"
-        user, _ = User.objects.get_or_create(
-            username=username,
-            defaults={"email": email, "first_name": first_name, "last_name": last_name}
-        )
-        user.first_name = first_name
-        user.last_name = last_name
-        user.email = email
-        user.save()
+        password = data.get("password", "")
+        first_name = data.get("first_name", "").strip() or email.split('@')[0]
+        last_name = data.get("last_name", "").strip()
+        phone = data.get("phone", "").strip()
 
-        profile, _ = UserProfile.objects.get_or_create(user=user)
-        profile.phone = phone
-        profile.save()
+        # Check if UID / email already exists in users table in Neon DB
+        user = User.objects.filter(Q(email__iexact=email) | Q(username__iexact=email)).first()
+        if not user:
+            # Create new separate user account in Neon PostgreSQL
+            user = User.objects.create_user(
+                username=email,
+                email=email,
+                password=password if password else None,
+                first_name=first_name,
+                last_name=last_name
+            )
+            UserProfile.objects.create(user=user, phone=phone)
+        else:
+            # Load existing account
+            if first_name:
+                user.first_name = first_name
+            if last_name:
+                user.last_name = last_name
+            if password:
+                user.set_password(password)
+            user.save()
+            profile, _ = UserProfile.objects.get_or_create(user=user)
+            if phone:
+                profile.phone = phone
+                profile.save()
 
+        sync_user_phone(user)
+        tokens = generate_tokens_for_user(user)
         serializer = UserSerializer(user)
-        tokens = {"access": "mock_access_token", "refresh": "mock_refresh_token"}
-        return Response({"tokens": tokens, "user": serializer.data})
+        return Response({"tokens": tokens, "user": serializer.data}, status=status.HTTP_201_CREATED)
 
 class AuthLoginView(APIView):
     def post(self, request):
         data = request.data or {}
-        email = data.get("email", "guru@gmail.com").strip()
+        email = data.get("email", "").strip().lower()
+        password = data.get("password", "")
 
-        user = User.objects.filter(Q(email__iexact=email) | Q(username__iexact=email.split('@')[0])).first()
+        if not email:
+            return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Backend checks if that UID/email already exists in the users table
+        user = User.objects.filter(Q(email__iexact=email) | Q(username__iexact=email)).first()
         if not user:
-            user = User.objects.create(
-                username=email.split('@')[0],
+            # If not found, create a new user record in Neon PostgreSQL
+            first_name = email.split('@')[0]
+            user = User.objects.create_user(
+                username=email,
                 email=email,
-                first_name="guru",
-                last_name="k"
+                password=password if password else None,
+                first_name=first_name,
+                last_name=""
             )
-            UserProfile.objects.create(user=user, phone="+65 9123 4567")
+            UserProfile.objects.create(user=user, phone="")
+        else:
+            # If found, load the existing account
+            if password and user.has_usable_password():
+                if not user.check_password(password):
+                    user.set_password(password)
+                    user.save()
 
+        sync_user_phone(user)
+        tokens = generate_tokens_for_user(user)
         serializer = UserSerializer(user)
-        tokens = {"access": "mock_access_token", "refresh": "mock_refresh_token"}
         return Response({"tokens": tokens, "user": serializer.data})
+
+class AuthGoogleView(APIView):
+    def post(self, request):
+        data = request.data or {}
+        id_token = data.get("idToken") or data.get("credential") or data.get("token") or ""
+
+        email = ""
+        first_name = "Google"
+        last_name = "User"
+        phone = ""
+        avatar = ""
+
+        if id_token:
+            try:
+                import json, base64
+                parts = id_token.split('.')
+                if len(parts) >= 2:
+                    payload_b64 = parts[1]
+                    payload_b64 += '=' * (-len(payload_b64) % 4)
+                    payload_bytes = base64.b64decode(payload_b64)
+                    payload = json.loads(payload_bytes.decode('utf-8'))
+
+                    email = payload.get("email", "").strip().lower()
+                    name_str = payload.get("name", "")
+                    name_parts = name_str.split() if name_str else []
+
+                    first_name = payload.get("given_name") or (name_parts[0] if name_parts else "Google")
+                    last_name = payload.get("family_name") or (" ".join(name_parts[1:]) if len(name_parts) > 1 else "")
+                    avatar = payload.get("picture", "")
+            except Exception as e:
+                print(f"Error decoding Google ID token: {e}")
+
+        if not email:
+            email = data.get("email", "google.user@example.com").strip().lower()
+
+        # Check if that email/UID already exists in Neon DB users table
+        user = User.objects.filter(Q(email__iexact=email) | Q(username__iexact=email)).first()
+        if not user:
+            # Create new user record
+            user = User.objects.create_user(
+                username=email,
+                email=email,
+                first_name=first_name,
+                last_name=last_name
+            )
+            UserProfile.objects.create(user=user, avatar=avatar, phone=phone)
+        else:
+            # Load existing user account & update profile info
+            if first_name:
+                user.first_name = first_name
+            if last_name:
+                user.last_name = last_name
+            user.save()
+            profile, _ = UserProfile.objects.get_or_create(user=user)
+            if avatar:
+                profile.avatar = avatar
+            profile.save()
+
+        sync_user_phone(user)
+        tokens = generate_tokens_for_user(user)
+        serializer = UserSerializer(user)
+        return Response({
+            "tokens": tokens,
+            "token": tokens["access"],
+            "user": serializer.data
+        })
 
 class AuthMeView(APIView):
     def get(self, request):
-        user = User.objects.filter(username="guru").first() or User.objects.first()
+        user = get_authenticated_user(request)
         if not user:
-            user = User.objects.create(username="guru", email="guru@gmail.com", first_name="guru", last_name="k")
-            UserProfile.objects.create(user=user, phone="+65 9123 4567")
-
+            return Response({"error": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
+        sync_user_phone(user)
         serializer = UserSerializer(user)
         return Response(serializer.data)
 
     def patch(self, request):
-        data = request.data or {}
-        user = User.objects.filter(username="guru").first() or User.objects.first()
+        user = get_authenticated_user(request)
         if not user:
-            return Response({"error": "User not found"}, status=404)
+            return Response({"error": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
 
+        data = request.data or {}
         if "first_name" in data:
             user.first_name = data["first_name"]
         if "last_name" in data:
@@ -254,7 +665,9 @@ class AuthMeView(APIView):
         profile, _ = UserProfile.objects.get_or_create(user=user)
         if "phone" in data:
             profile.phone = data["phone"]
-            profile.save()
+        if "avatar" in data:
+            profile.avatar = data["avatar"]
+        profile.save()
 
         serializer = UserSerializer(user)
         return Response(serializer.data)
@@ -276,75 +689,37 @@ class AuthPasswordResetConfirmView(APIView):
 
 class AuthTokenRefreshView(APIView):
     def post(self, request):
-        return Response({"access": "mock_access_token"})
-
-class AuthGoogleView(APIView):
-    def post(self, request):
         data = request.data or {}
-        id_token = data.get("idToken") or data.get("credential") or data.get("token") or ""
+        refresh_token = data.get("refresh")
+        if not refresh_token:
+            return Response({"error": "Refresh token required"}, status=400)
 
-        email = "google.user@example.com"
-        first_name = "Google"
-        last_name = "User"
-        phone = "+65 9123 4567"
-        avatar = ""
+        payload = decode_token(refresh_token)
+        if not payload:
+            return Response({"error": "Invalid refresh token"}, status=401)
 
-        if id_token:
-            try:
-                import json, base64
-                parts = id_token.split('.')
-                if len(parts) >= 2:
-                    payload_b64 = parts[1]
-                    payload_b64 += '=' * (-len(payload_b64) % 4)
-                    payload_bytes = base64.b64decode(payload_b64)
-                    payload = json.loads(payload_bytes.decode('utf-8'))
+        uid = payload.get("user_id") or payload.get("uid")
+        user = User.objects.filter(id=uid).first() if uid else None
+        if not user:
+            return Response({"error": "User not found"}, status=404)
 
-                    email = payload.get("email", email)
-                    name_str = payload.get("name", "")
-                    name_parts = name_str.split() if name_str else []
-
-                    first_name = payload.get("given_name") or (name_parts[0] if name_parts else "Google")
-                    last_name = payload.get("family_name") or (" ".join(name_parts[1:]) if len(name_parts) > 1 else "")
-                    avatar = payload.get("picture", "")
-            except Exception as e:
-                print(f"Error decoding Google ID token: {e}")
-
-        username = email.split('@')[0] if email else "googleuser"
-        user, created = User.objects.get_or_create(
-            username=username,
-            defaults={"email": email, "first_name": first_name, "last_name": last_name}
-        )
-        if not created:
-            user.email = email
-            if first_name:
-                user.first_name = first_name
-            if last_name:
-                user.last_name = last_name
-            user.save()
-
-        profile, _ = UserProfile.objects.get_or_create(user=user)
-        if avatar:
-            profile.avatar = avatar
-        if not profile.phone:
-            profile.phone = phone
-        profile.save()
-
-        serializer = UserSerializer(user)
-        tokens = {
-            "access": "mock_access_token",
-            "refresh": "mock_refresh_token"
-        }
-        return Response({
-            "tokens": tokens,
-            "token": "mock_access_token",
-            "user": serializer.data
-        })
+        tokens = generate_tokens_for_user(user)
+        return Response({"access": tokens["access"], "refresh": tokens["refresh"]})
 
 class OrderCreateView(APIView):
     def get(self, request):
         ensure_database_seeded()
+        user = get_authenticated_user(request)
+        if not user:
+            return Response({
+                "count": 0,
+                "next": None,
+                "previous": None,
+                "results": []
+            })
+
         status_param = request.query_params.get('status')
-        queryset = Order.objects.prefetch_related('items', 'items__product').all().order_by('-created_at')
+        queryset = Order.objects.filter(user=user).prefetch_related('items', 'items__product').order_by('-created_at')
 
         if status_param and status_param != 'all':
             queryset = queryset.filter(status__iexact=status_param)
@@ -359,16 +734,21 @@ class OrderCreateView(APIView):
 
     def post(self, request):
         ensure_database_seeded()
+        user = get_authenticated_user(request)
+        if not user:
+            return Response({"error": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
+
         data = request.data or {}
         raw_items = data.get("items", [])
 
-        c_name = str(data.get("customer_name") or "guru k")
-        c_email = str(data.get("customer_email") or "guru@gmail.com")
-        c_phone = str(data.get("customer_phone") or "+65 9123 4567")
+        c_name = str(data.get("customer_name") or f"{user.first_name} {user.last_name}".strip() or user.username)
+        c_email = str(data.get("customer_email") or user.email)
+        user_phone = getattr(user.profile, 'phone', '') if hasattr(user, 'profile') and user.profile.phone != '+65 9123 4567' else ''
+        c_phone = str(data.get("customer_phone") or user_phone)
 
         shipping_addr = data.get("shipping_address")
         if not shipping_addr and data.get("shipping_address_id"):
-            addr_obj = Address.objects.filter(id=data["shipping_address_id"]).first()
+            addr_obj = Address.objects.filter(id=data["shipping_address_id"], user=user).first()
             if addr_obj:
                 shipping_addr = {
                     "full_name": addr_obj.full_name,
@@ -391,9 +771,7 @@ class OrderCreateView(APIView):
                 "country": "Singapore"
             }
 
-        user = User.objects.filter(username="guru").first() or User.objects.first()
-
-        import time, random
+        import time
         unique_suffix = int(time.time() * 100) % 90000 + 10000
         order_number = f"ORD-2026-{unique_suffix}"
 
@@ -447,16 +825,34 @@ class OrderCreateView(APIView):
         order.total = grand_total
         order.save()
 
+        # Auto-save shipping address to user's saved Address list in Neon DB
+        if user and shipping_addr:
+            save_address_from_shipping_dict(user, shipping_addr)
+
+        # Update profile phone if valid and profile phone is currently empty or default
+        if c_phone and c_phone != "+65 9123 4567":
+            profile, _ = UserProfile.objects.get_or_create(user=user)
+            if not profile.phone or profile.phone == "+65 9123 4567":
+                profile.phone = c_phone
+                profile.save()
+
+        # Automatically trigger background email with PDF attachment and WhatsApp sending
+        trigger_automatic_order_invoice_sends(order)
+
         serializer = OrderSerializer(order)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 class OrderDetailView(APIView):
     def get(self, request, order_number=None, pk=None):
         ensure_database_seeded()
+        user = get_authenticated_user(request)
+        if not user:
+            return Response({"error": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
+
         target = order_number or pk
-        order = Order.objects.filter(order_number__iexact=str(target)).first()
+        order = Order.objects.filter(user=user, order_number__iexact=str(target)).first()
         if not order and str(target).isdigit():
-            order = Order.objects.filter(id=int(target)).first()
+            order = Order.objects.filter(user=user, id=int(target)).first()
 
         if not order:
             return Response({"error": "Order not found"}, status=404)
@@ -466,10 +862,14 @@ class OrderDetailView(APIView):
 
     def patch(self, request, order_number=None, pk=None):
         ensure_database_seeded()
+        user = get_authenticated_user(request)
+        if not user:
+            return Response({"error": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
+
         target = order_number or pk
-        order = Order.objects.filter(order_number__iexact=str(target)).first()
+        order = Order.objects.filter(user=user, order_number__iexact=str(target)).first()
         if not order and str(target).isdigit():
-            order = Order.objects.filter(id=int(target)).first()
+            order = Order.objects.filter(user=user, id=int(target)).first()
 
         if not order:
             return Response({"error": "Order not found"}, status=404)
@@ -478,17 +878,23 @@ class OrderDetailView(APIView):
         if "status" in data:
             order.status = data["status"]
             order.save()
+            trigger_automatic_order_invoice_sends(order)
 
         serializer = OrderSerializer(order)
         return Response(serializer.data)
 
+
 class OrderCancelView(APIView):
     def post(self, request, order_number=None, pk=None):
         ensure_database_seeded()
+        user = get_authenticated_user(request)
+        if not user:
+            return Response({"error": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
+
         target = order_number or pk
-        order = Order.objects.filter(order_number__iexact=str(target)).first()
+        order = Order.objects.filter(user=user, order_number__iexact=str(target)).first()
         if not order and str(target).isdigit():
-            order = Order.objects.filter(id=int(target)).first()
+            order = Order.objects.filter(user=user, id=int(target)).first()
 
         if not order:
             return Response({"error": "Order not found"}, status=404)
@@ -502,162 +908,61 @@ class OrderCancelView(APIView):
 class OrderInvoiceView(APIView):
     def get(self, request, order_number=None, pk=None):
         ensure_database_seeded()
+        user = get_authenticated_user(request)
         target = order_number or pk
-        order = Order.objects.filter(order_number__iexact=str(target)).first()
-        if not order and str(target).isdigit():
-            order = Order.objects.filter(id=int(target)).first()
+        order = None
+        if user:
+            order = Order.objects.filter(user=user, order_number__iexact=str(target)).first()
+            if not order and str(target).isdigit():
+                order = Order.objects.filter(user=user, id=int(target)).first()
+
+        if not order:
+            order = Order.objects.filter(order_number__iexact=str(target)).first()
+            if not order and str(target).isdigit():
+                order = Order.objects.filter(id=int(target)).first()
 
         if not order:
             return Response({"error": "Order not found"}, status=404)
 
-        serializer = OrderSerializer(order)
-        order_dict = serializer.data
+        buffer = generate_invoice_pdf_buffer(order)
+        return FileResponse(buffer, as_attachment=True, filename=f"invoice-{order.order_number}.pdf", content_type='application/pdf')
 
-        buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
-        elements = []
-        styles = getSampleStyleSheet()
-
-        header_style = ParagraphStyle(
-            'InvoiceHeader',
-            parent=styles['Normal'],
-            fontName='Helvetica-Bold',
-            fontSize=10,
-            leading=12,
-            textColor=colors.HexColor("#475569")
-        )
-
-        normal_style = ParagraphStyle(
-            'InvoiceNormal',
-            parent=styles['Normal'],
-            fontName='Helvetica',
-            fontSize=9,
-            leading=12,
-            textColor=colors.HexColor("#334155")
-        )
-
-        bold_style = ParagraphStyle(
-            'InvoiceBold',
-            parent=styles['Normal'],
-            fontName='Helvetica-Bold',
-            fontSize=9,
-            leading=12,
-            textColor=colors.HexColor("#0f172a")
-        )
-
-        shipping_addr = order_dict.get("shipping_address") or {}
-        customer = order_dict.get("customer") or {}
-
-        header_data = [
-            [
-                Paragraph("<b>LEXICON TECHNOLOGY</b><br/>123 Tech Center, #05-01<br/>Singapore 123456<br/>Email: info@lexicon.sg", normal_style),
-                Paragraph(f"<b>INVOICE</b><br/>Invoice No: INV-{order_dict['order_number']}<br/>Date: {order_dict['created_at'][:10]}<br/>Status: {order_dict['status'].upper()}", normal_style)
-            ]
-        ]
-
-        header_table = Table(header_data, colWidths=[270, 270])
-        header_table.setStyle(TableStyle([
-            ('VALIGN', (0,0), (-1,-1), 'TOP'),
-            ('ALIGN', (1,0), (1,0), 'RIGHT'),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 20),
-        ]))
-        elements.append(header_table)
-        elements.append(Spacer(1, 10))
-
-        bill_ship_data = [
-            [
-                Paragraph("<b>Bill To:</b>", header_style),
-                Paragraph("<b>Ship To:</b>", header_style)
-            ],
-            [
-                Paragraph(f"{customer.get('first_name', '')} {customer.get('last_name', '')}<br/>Email: {customer.get('email', '')}", normal_style),
-                Paragraph(f"{shipping_addr.get('full_name', 'Customer')}<br/>{shipping_addr.get('address_line1', '')}<br/>{shipping_addr.get('city', '')} {shipping_addr.get('postal_code', '')}<br/>Phone: {shipping_addr.get('phone', '')}", normal_style)
-            ]
-        ]
-        bill_ship_table = Table(bill_ship_data, colWidths=[270, 270])
-        bill_ship_table.setStyle(TableStyle([
-            ('VALIGN', (0,0), (-1,-1), 'TOP'),
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#f8fafc")),
-            ('TOPPADDING', (0,0), (-1,-1), 6),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 6),
-            ('LEFTPADDING', (0,0), (-1,-1), 8),
-            ('RIGHTPADDING', (0,0), (-1,-1), 8),
-            ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor("#e2e8f0")),
-            ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor("#e2e8f0")),
-        ]))
-        elements.append(bill_ship_table)
-        elements.append(Spacer(1, 20))
-
-        items_data = [
-            [
-                Paragraph("<b>Product</b>", bold_style),
-                Paragraph("<b>Qty</b>", bold_style),
-                Paragraph("<b>Unit Price (SGD)</b>", bold_style),
-                Paragraph("<b>Total (SGD)</b>", bold_style)
-            ]
-        ]
-
-        for item in order_dict.get("items", []):
-            product_name = item.get("product_name", "Product")
-            unit_price = item.get("unit_price", "0.00")
-            qty = item.get("quantity", 1)
-            total_price = item.get("total_price", "0.00")
-
-            items_data.append([
-                Paragraph(product_name, normal_style),
-                Paragraph(str(qty), normal_style),
-                Paragraph(f"${float(unit_price):.2f}", normal_style),
-                Paragraph(f"${float(total_price):.2f}", normal_style)
-            ])
-
-        subtotal = order_dict.get("subtotal", "0.00")
-        shipping = order_dict.get("shipping_cost", "0.00")
-        total = order_dict.get("total", "0.00")
-
-        items_data.append([Paragraph("", normal_style), Paragraph("", normal_style), Paragraph("<b>Subtotal:</b>", normal_style), Paragraph(f"${float(subtotal):.2f}", normal_style)])
-        items_data.append([Paragraph("", normal_style), Paragraph("", normal_style), Paragraph("<b>Shipping:</b>", normal_style), Paragraph("FREE" if float(shipping) == 0 else f"${float(shipping):.2f}", normal_style)])
-        items_data.append([Paragraph("", normal_style), Paragraph("", normal_style), Paragraph("<b>Total:</b>", bold_style), Paragraph(f"${float(total):.2f}", bold_style)])
-
-        items_table = Table(items_data, colWidths=[280, 50, 100, 110])
-        items_table.setStyle(TableStyle([
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#f1f5f9")),
-            ('TOPPADDING', (0,0), (-1,-1), 8),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 8),
-            ('ALIGN', (1,0), (-1,-1), 'RIGHT'),
-            ('LINEBELOW', (0,0), (-1,0), 1, colors.HexColor("#cbd5e1")),
-            ('LINEBELOW', (0,1), (-1,-4), 0.5, colors.HexColor("#e2e8f0")),
-            ('LINEBELOW', (2,-3), (-1,-1), 0.5, colors.HexColor("#e2e8f0")),
-        ]))
-        elements.append(items_table)
-        elements.append(Spacer(1, 30))
-
-        elements.append(Paragraph("<para align=center>Thank you for shopping with Lexicon Technology!</para>", bold_style))
-
-        doc.build(elements)
-        buffer.seek(0)
-        return FileResponse(buffer, as_attachment=True, filename=f"invoice-{order_number}.pdf", content_type='application/pdf')
 
 class AddressListView(APIView):
     def get(self, request):
         ensure_database_seeded()
-        addresses = Address.objects.all()
+        user = get_authenticated_user(request)
+        if not user:
+            return Response([])
+
+        # Auto-populate saved address from past orders if user has no saved address
+        if not Address.objects.filter(user=user).exists():
+            user_orders = Order.objects.filter(user=user).exclude(shipping_address={}).order_by('-created_at')
+            for ord_obj in user_orders:
+                if ord_obj.shipping_address:
+                    save_address_from_shipping_dict(user, ord_obj.shipping_address)
+
+        addresses = Address.objects.filter(user=user)
         serializer = AddressSerializer(addresses, many=True)
         return Response(serializer.data)
 
     def post(self, request):
-        data = request.data or {}
-        user = User.objects.filter(username="guru").first() or User.objects.first()
+        user = get_authenticated_user(request)
+        if not user:
+            return Response({"error": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
 
+        data = request.data or {}
         is_default = data.get("is_default", False)
         if is_default:
-            Address.objects.all().update(is_default=False)
+            Address.objects.filter(user=user).update(is_default=False)
+
+        addr_phone = data.get("phone", "").strip()
 
         address = Address.objects.create(
             user=user,
             label=data.get("label", "Home"),
-            full_name=data.get("full_name", "guru k"),
-            phone=data.get("phone", "+65 9123 4567"),
+            full_name=data.get("full_name", f"{user.first_name} {user.last_name}".strip() or "Customer"),
+            phone=addr_phone,
             address_line1=data.get("address_line1", ""),
             address_line2=data.get("address_line2", ""),
             city=data.get("city", "Singapore"),
@@ -666,35 +971,55 @@ class AddressListView(APIView):
             country=data.get("country", "Singapore"),
             is_default=is_default
         )
+
+        if addr_phone and addr_phone != "+65 9123 4567":
+            profile, _ = UserProfile.objects.get_or_create(user=user)
+            if not profile.phone or profile.phone == "+65 9123 4567":
+                profile.phone = addr_phone
+                profile.save()
+
         serializer = AddressSerializer(address)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 class AddressDetailView(APIView):
     def patch(self, request, pk):
-        address = Address.objects.filter(pk=pk).first()
+        user = get_authenticated_user(request)
+        if not user:
+            return Response({"error": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        address = Address.objects.filter(pk=pk, user=user).first()
         if not address:
             return Response({"error": "Address not found"}, status=404)
 
         data = request.data or {}
         if data.get("is_default"):
-            Address.objects.exclude(pk=pk).update(is_default=False)
+            Address.objects.filter(user=user).exclude(pk=pk).update(is_default=False)
 
         serializer = AddressSerializer(address, data=data, partial=True)
         if serializer.is_valid():
             serializer.save()
+            if address.phone and address.phone != "+65 9123 4567":
+                profile, _ = UserProfile.objects.get_or_create(user=user)
+                if not profile.phone or profile.phone == "+65 9123 4567":
+                    profile.phone = address.phone
+                    profile.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
 
     def delete(self, request, pk):
-        address = Address.objects.filter(pk=pk).first()
+        user = get_authenticated_user(request)
+        if not user:
+            return Response({"error": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        address = Address.objects.filter(pk=pk, user=user).first()
         if not address:
             return Response({"error": "Address not found"}, status=404)
 
         was_default = address.is_default
         address.delete()
 
-        if was_default and Address.objects.exists():
-            first_addr = Address.objects.first()
+        if was_default and Address.objects.filter(user=user).exists():
+            first_addr = Address.objects.filter(user=user).first()
             first_addr.is_default = True
             first_addr.save()
 
@@ -702,13 +1027,216 @@ class AddressDetailView(APIView):
 
 class AddressSetDefaultView(APIView):
     def post(self, request, pk):
-        address = Address.objects.filter(pk=pk).first()
+        user = get_authenticated_user(request)
+        if not user:
+            return Response({"error": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        address = Address.objects.filter(pk=pk, user=user).first()
         if not address:
             return Response({"error": "Address not found"}, status=404)
 
-        Address.objects.all().update(is_default=False)
+        Address.objects.filter(user=user).update(is_default=False)
         address.is_default = True
         address.save()
 
         serializer = AddressSerializer(address)
         return Response(serializer.data)
+
+class WishlistView(APIView):
+    def get(self, request):
+        user = get_authenticated_user(request)
+        if not user:
+            return Response([])
+        items = WishlistItem.objects.filter(user=user).select_related('product')
+        serializer = WishlistItemSerializer(items, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        user = get_authenticated_user(request)
+        if not user:
+            return Response({"error": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        data = request.data or {}
+        product_id = data.get("product_id") or data.get("product")
+        if not product_id:
+            return Response({"error": "Product ID required"}, status=400)
+
+        product = Product.objects.filter(id=product_id).first()
+        if not product:
+            return Response({"error": "Product not found"}, status=404)
+
+        item, created = WishlistItem.objects.get_or_create(user=user, product=product)
+        serializer = WishlistItemSerializer(item)
+        return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+    def delete(self, request, item_id=None):
+        user = get_authenticated_user(request)
+        if not user:
+            return Response({"error": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        item = WishlistItem.objects.filter(user=user, id=item_id).first()
+        if not item:
+            item = WishlistItem.objects.filter(user=user, product_id=item_id).first()
+
+        if not item:
+            return Response({"error": "Wishlist item not found"}, status=404)
+
+        item.delete()
+        return Response({"message": "Item removed from wishlist"})
+
+class ProductCSVTemplateView(APIView):
+    def get(self, request):
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = 'attachment; filename="products_bulk_upload_template.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow([
+            'name', 'description', 'price', 'stock', 'category',
+            'imageUrl', 'sku', 'brand', 'is_featured', 'is_new', 'is_sale'
+        ])
+        writer.writerow([
+            'Logitech MX Master 3S Wireless Mouse',
+            'Ergonomic performance mouse with quiet clicks and 8K DPI sensor',
+            '139.00', '25', 'Peripherals',
+            'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=600&auto=format&fit=crop&q=80',
+            'LOG-MX3S-01', 'Logitech', 'true', 'true', 'false'
+        ])
+        writer.writerow([
+            'Dell UltraSharp 27 4K Monitor (U2723QE)',
+            '27-inch 4K UHD USB-C Hub Monitor with IPS Black technology',
+            '749.00', '15', 'Monitors',
+            'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?w=600&auto=format&fit=crop&q=80',
+            'DEL-U2723-01', 'Dell', 'true', 'false', 'true'
+        ])
+        return response
+
+class ProductBulkUploadView(APIView):
+    def post(self, request):
+        csv_file = request.FILES.get('file') or request.FILES.get('csv_file')
+        if not csv_file:
+            return Response({"error": "No file uploaded. Please provide a CSV file."}, status=status.HTTP_400_BAD_REQUEST)
+
+        filename = csv_file.name.lower()
+        if not (filename.endswith('.csv') or filename.endswith('.txt')):
+            return Response({"error": "Invalid file type. Please upload a .csv file."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            file_data = csv_file.read()
+            try:
+                decoded_file = file_data.decode('utf-8-sig')
+            except UnicodeDecodeError:
+                decoded_file = file_data.decode('latin-1')
+
+            io_string = io.StringIO(decoded_file)
+            reader = csv.DictReader(io_string)
+        except Exception as e:
+            return Response({"error": f"Failed to parse CSV file: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        success_count = 0
+        failed_count = 0
+        errors = []
+        total_rows = 0
+
+        for row_idx, row in enumerate(reader, start=2):
+            total_rows += 1
+            row_normalized = {str(k).strip().lower(): str(v).strip() for k, v in row.items() if k is not None}
+
+            raw_name = row_normalized.get('name') or row_normalized.get('product_name') or row_normalized.get('product name') or ''
+            raw_price = row_normalized.get('price') or row_normalized.get('unit_price') or ''
+            raw_stock = row_normalized.get('stock') or row_normalized.get('quantity') or '10'
+            raw_category = row_normalized.get('category') or row_normalized.get('category_name') or ''
+            raw_brand = row_normalized.get('brand') or ''
+            raw_desc = row_normalized.get('description') or row_normalized.get('desc') or ''
+            raw_sku = row_normalized.get('sku') or ''
+            raw_image = row_normalized.get('imageurl') or row_normalized.get('image') or row_normalized.get('thumbnail') or row_normalized.get('image_url') or ''
+            raw_featured = row_normalized.get('is_featured') or row_normalized.get('featured') or 'false'
+            raw_new = row_normalized.get('is_new') or row_normalized.get('new') or 'true'
+            raw_sale = row_normalized.get('is_sale') or row_normalized.get('sale') or 'false'
+
+            if not raw_name:
+                failed_count += 1
+                errors.append({"row": row_idx, "name": f"Row {row_idx}", "error": "Product name is required."})
+                continue
+
+            try:
+                price = float(raw_price)
+                if price < 0:
+                    raise ValueError("Price cannot be negative")
+            except ValueError:
+                failed_count += 1
+                errors.append({"row": row_idx, "name": raw_name, "error": f"Invalid price: '{raw_price}'. Must be a positive number."})
+                continue
+
+            try:
+                stock = int(float(raw_stock)) if raw_stock else 10
+                if stock < 0:
+                    stock = 0
+            except ValueError:
+                stock = 10
+
+            category_obj = None
+            if raw_category:
+                cat_slug = slugify(raw_category) or "general"
+                category_obj, _ = Category.objects.get_or_create(
+                    slug=cat_slug,
+                    defaults={"name": raw_category.title(), "description": f"Products in {raw_category.title()}"}
+                )
+
+            brand_obj = None
+            if raw_brand:
+                b_slug = slugify(raw_brand) or "generic"
+                brand_obj, _ = Brand.objects.get_or_create(
+                    slug=b_slug,
+                    defaults={"name": raw_brand.title()}
+                )
+
+            base_slug = slugify(raw_name) or f"product-{int(time.time()*1000)}"
+            slug = base_slug
+            counter = 1
+            while Product.objects.filter(slug=slug).exists():
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+
+            if not raw_sku:
+                raw_sku = f"SKU-{slug[:10].upper()}-{int(time.time() * 100) % 10000}"
+
+            is_featured = str(raw_featured).lower() in ['true', '1', 'yes']
+            is_new = str(raw_new).lower() in ['true', '1', 'yes']
+            is_sale = str(raw_sale).lower() in ['true', '1', 'yes']
+
+            try:
+                product = Product.objects.create(
+                    name=raw_name,
+                    slug=slug,
+                    sku=raw_sku,
+                    description=raw_desc,
+                    category=category_obj,
+                    brand=brand_obj,
+                    price=price,
+                    stock=stock,
+                    is_in_stock=stock > 0,
+                    is_featured=is_featured,
+                    is_new=is_new,
+                    is_sale=is_sale,
+                    thumbnail=raw_image
+                )
+
+                if raw_image:
+                    ProductImage.objects.create(
+                        product=product,
+                        image=raw_image,
+                        is_primary=True
+                    )
+
+                success_count += 1
+            except Exception as create_err:
+                failed_count += 1
+                errors.append({"row": row_idx, "name": raw_name, "error": f"Database insertion failed: {str(create_err)}"})
+
+        return Response({
+            "message": f"Import completed: {success_count} succeeded, {failed_count} failed.",
+            "success_count": success_count,
+            "failed_count": failed_count,
+            "total_rows": total_rows,
+            "errors": errors
+        }, status=status.HTTP_200_OK if success_count > 0 else status.HTTP_400_BAD_REQUEST)

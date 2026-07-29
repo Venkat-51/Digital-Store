@@ -50,6 +50,29 @@ export const productsService = {
     await api.delete(`/products/${id}/`);
   },
 
+  // Bulk Upload
+  downloadCSVTemplate: async (): Promise<Blob> => {
+    const { data } = await api.get('/products/csv-template/', {
+      responseType: 'blob',
+    });
+    return data;
+  },
+
+  bulkUploadProducts: async (file: File): Promise<{
+    message: string;
+    success_count: number;
+    failed_count: number;
+    total_rows: number;
+    errors: { row: number; name: string; error: string }[];
+  }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const { data } = await api.post('/products/bulk-upload/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data;
+  },
+
   // Wishlist
   getWishlist: async (): Promise<WishlistItem[]> => {
     const { data } = await api.get('/wishlist/');

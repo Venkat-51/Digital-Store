@@ -2,7 +2,7 @@ import React from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Package, ArrowRight, ArrowLeft, Download, MapPin, Truck, CheckCircle2, Clock, Calendar
+  Package, ArrowRight, ArrowLeft, Download, MapPin, Truck, CheckCircle2, Clock, Calendar, MessageSquare
 } from 'lucide-react';
 import { ordersService } from '@/services/orders.service';
 import { QUERY_KEYS } from '@/constants/queryKeys';
@@ -48,13 +48,7 @@ const OrdersPage: React.FC = () => {
     if (!orderDetail) {
       return (
         <div className="max-w-3xl mx-auto space-y-4">
-          <button
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-primary-600 transition-colors"
-          >
-            <ArrowLeft size={16} /> Back
-          </button>
-          <EmptyState
+            <EmptyState
             icon={<Package size={36} />}
             title="Order not found"
             description={`We couldn't find order details for #${orderNumber}.`}
@@ -68,12 +62,6 @@ const OrdersPage: React.FC = () => {
       <div className="max-w-3xl mx-auto space-y-6">
         {/* Back Link & Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <button
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-2 text-sm font-bold text-gray-700 hover:text-primary-600 transition-colors"
-          >
-            <ArrowLeft size={16} /> Back
-          </button>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -99,6 +87,7 @@ const OrdersPage: React.FC = () => {
             </Button>
           </div>
         </div>
+
 
         {/* Order Info Banner */}
         <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-4">
@@ -226,13 +215,6 @@ const OrdersPage: React.FC = () => {
   // ============================================================
   return (
     <div className="space-y-4 max-w-3xl mx-auto">
-      {/* Back Button */}
-      <button
-        onClick={() => navigate(-1)}
-        className="inline-flex items-center gap-2 text-sm font-bold text-gray-700 hover:text-primary-600 transition-colors"
-      >
-        <ArrowLeft size={16} /> Back
-      </button>
 
       {/* Header */}
       <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex items-center justify-between">

@@ -137,14 +137,6 @@ const SavedAddressesPage: React.FC = () => {
 
   return (
     <div className="space-y-4 max-w-3xl mx-auto font-sans">
-      {/* Back Button */}
-      <button
-        onClick={() => navigate(-1)}
-        className="inline-flex items-center gap-2 text-sm font-bold text-gray-700 hover:text-primary-600 transition-colors"
-      >
-        <ArrowLeft size={16} /> Back
-      </button>
-
       {/* Header */}
       <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
