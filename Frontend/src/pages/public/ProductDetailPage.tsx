@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Heart, ChevronLeft, ChevronRight, Minus, Plus, Star, Truck, Shield, RefreshCw, ZoomIn } from 'lucide-react';
+import { ShoppingCart, Heart, ChevronLeft, ChevronRight, Minus, Plus, Star, Truck, Shield, RefreshCw, ZoomIn, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useProduct, useRelatedProducts, useProductImage } from '@/hooks/useProducts';
 import { useCart } from '@/hooks/useCart';
@@ -15,12 +15,14 @@ import ProductGrid from '@/components/product/ProductGrid';
 import { formatPrice } from '@/utils/formatters';
 import { cn } from '@/utils/helpers';
 import { calcDiscount } from '@/utils/formatters';
+import { ROUTES } from '@/constants/routes';
 
 const ProductDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
+  const navigate = useNavigate();
   const { data: product, isLoading, error } = useProduct(slug!);
   const { data: related } = useRelatedProducts(product?.id ?? 0);
-  const { addItem } = useCart();
+  const { addItem, closeCart } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
 
   const [selectedImage, setSelectedImage] = useState(0);
@@ -58,6 +60,14 @@ const ProductDetailPage: React.FC = () => {
     addItem(product, quantity);
     toast.success(`${product.name} added to cart!`);
   };
+
+  const handleProceedToCheckout = () => {
+    if (!product.is_in_stock) return;
+    addItem(product, quantity);
+    closeCart();
+    navigate(ROUTES.CHECKOUT);
+  };
+
 
   return (
     <>
@@ -104,6 +114,23 @@ const ProductDetailPage: React.FC = () => {
                 {product.is_new && <Badge variant="new">New</Badge>}
                 {discount > 0 && <Badge variant="sale">-{discount}%</Badge>}
               </div>
+
+              {/* Wishlist Overlay Button */}
+              <button
+                onClick={() => {
+                  toggleWishlist(product);
+                  toast(inWishlist ? 'Removed from wishlist' : 'Added to wishlist!', { icon: inWishlist ? '💔' : '❤️' });
+                }}
+                aria-label={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+                className={cn(
+                  'absolute top-4 right-4 z-10 w-11 h-11 rounded-full flex items-center justify-center shadow-md border transition-all duration-200 active:scale-95 cursor-pointer',
+                  inWishlist
+                    ? 'bg-red-50 text-red-500 border-red-100'
+                    : 'bg-white/90 backdrop-blur-xs text-gray-400 hover:text-red-500 border-gray-100 hover:border-red-100',
+                )}
+              >
+                <Heart size={20} fill={inWishlist ? 'currentColor' : 'none'} />
+              </button>
 
               {/* Nav arrows */}
               {images.length > 1 && (
@@ -221,22 +248,24 @@ const ProductDetailPage: React.FC = () => {
                 leftIcon={<ShoppingCart size={18} />}
                 onClick={handleAddToCart}
                 disabled={!product.is_in_stock}
-                className="flex-1"
+                className="flex-1 py-3.5 text-base"
               >
                 {product.is_in_stock ? 'Add to Cart' : 'Out of Stock'}
               </Button>
+
               <Button
-                variant={inWishlist ? 'secondary' : 'outline'}
+                variant="secondary"
                 size="lg"
-                leftIcon={<Heart size={18} fill={inWishlist ? 'currentColor' : 'none'} />}
-                onClick={() => {
-                  toggleWishlist(product);
-                  toast(inWishlist ? 'Removed from wishlist' : 'Added to wishlist!', { icon: inWishlist ? '💔' : '❤️' });
-                }}
+                rightIcon={<ArrowRight size={18} />}
+                onClick={handleProceedToCheckout}
+                disabled={!product.is_in_stock}
+                className="flex-1 py-3.5 text-base bg-amber-400 hover:bg-amber-500 text-gray-950 font-black border-amber-400 shadow-sm active:scale-95 transition-all"
               >
-                {inWishlist ? 'Wishlisted' : 'Wishlist'}
+                Buy Now
               </Button>
             </div>
+
+
 
             {/* Perks */}
             <div className="grid grid-cols-3 gap-3 p-4 bg-gray-50 rounded-2xl">

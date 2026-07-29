@@ -35,11 +35,16 @@ const checkoutSchema = z.object({
 type CheckoutFormData = z.infer<typeof checkoutSchema>;
 
 const CheckoutPage: React.FC = () => {
-  const { items, subtotal, clearCart } = useCart();
+  const { items, subtotal, clearCart, closeCart } = useCart();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
 
+  React.useEffect(() => {
+    closeCart();
+  }, []);
+
   const { data: addresses = [] } = useQuery({
+
     queryKey: [QUERY_KEYS.PROFILE, 'addresses'],
     queryFn: () => profileService.getAddresses(),
     enabled: isAuthenticated,
@@ -47,7 +52,16 @@ const CheckoutPage: React.FC = () => {
 
   const { register, handleSubmit, setValue, formState: { errors } } = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema),
-    defaultValues: { city: 'Singapore', postal_code: '' },
+    defaultValues: {
+      customer_name: user ? `${user.first_name} ${user.last_name || ''}`.trim() : '',
+      customer_email: user?.email || '',
+      customer_phone: user?.phone || '',
+      city: '',
+      postal_code: '',
+      address_line1: '',
+      address_line2: '',
+      state: '',
+    },
   });
 
   // Prefill personal details from user profile
@@ -59,21 +73,27 @@ const CheckoutPage: React.FC = () => {
         setValue('customer_phone', user.phone);
       }
     }
+    // Ensure City is filled for first-time order
+    setValue('city', '');
   }, [user, setValue]);
 
-  // Prefill shipping address with default saved address
+  // Prefill shipping address with default saved address if available
   React.useEffect(() => {
     if (addresses.length > 0) {
       const defaultAddr = addresses.find((a: Address) => a.is_default) || addresses[0];
       if (defaultAddr) {
         setValue('address_line1', defaultAddr.address_line1);
         setValue('address_line2', defaultAddr.address_line2 || '');
-        setValue('city', defaultAddr.city);
+        setValue('city', defaultAddr.city || '');
         setValue('state', defaultAddr.state || '');
         setValue('postal_code', defaultAddr.postal_code);
       }
+    } else {
+      // First time order default
+      setValue('city', '');
     }
   }, [addresses, setValue]);
+
 
   const { mutate: placeOrder, isPending } = useMutation({
     mutationFn: (data: CheckoutFormData) =>
@@ -276,7 +296,7 @@ const CheckoutPage: React.FC = () => {
             <div className="space-y-5">
               <div className="card p-5 sticky top-24">
                 <h2 className="text-base font-bold text-gray-900 mb-5">Order Summary</h2>
-                
+
                 {/* Items */}
                 <div className="space-y-3 mb-5 max-h-72 overflow-y-auto">
                   {items.map((item) => (
@@ -317,16 +337,17 @@ const CheckoutPage: React.FC = () => {
                 </div>
 
                 <Button
-                  variant="primary"
+                  variant="secondary"
                   size="lg"
                   fullWidth
                   type="submit"
                   isLoading={isPending}
                   rightIcon={<ArrowRight size={16} />}
-                  className="mt-5"
+                  className="mt-5 bg-amber-400 hover:bg-amber-500 text-gray-950 font-black border-amber-400 shadow-md active:scale-95 transition-all text-base py-3.5"
                 >
                   Place Order
                 </Button>
+
 
                 <p className="text-xs text-gray-400 text-center mt-3">
                   By placing your order, you agree to our{' '}

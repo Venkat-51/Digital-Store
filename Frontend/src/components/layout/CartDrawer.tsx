@@ -161,8 +161,8 @@ const CartDrawer: React.FC = () => {
                 <p className="text-xs text-gray-400 text-center">
                   Shipping and taxes calculated at checkout
                 </p>
-                <Button variant="primary" size="lg" fullWidth onClick={handleCheckout}>
-                  Proceed to Checkout
+                <Button variant="secondary" size="lg" fullWidth onClick={handleCheckout} className="bg-amber-400 hover:bg-amber-500 text-gray-950 font-black border-amber-400 shadow-md active:scale-95 transition-all">
+                  Buy now
                 </Button>
                 <Button variant="ghost" size="md" fullWidth onClick={() => { closeCart(); navigate(ROUTES.CART); }}>
                   View Full Cart
