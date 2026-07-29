@@ -2,8 +2,9 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import (
     Category, Brand, Product, ProductImage, Specification,
-    UserProfile, Address, Order, OrderItem, WishlistItem
+    UserProfile, Address, Order, OrderItem, WishlistItem, CartItem
 )
+
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -169,3 +170,19 @@ class WishlistItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = WishlistItem
         fields = ['id', 'product', 'created_at']
+
+class CartItemSerializer(serializers.ModelSerializer):
+    product = ProductSerializer(read_only=True)
+    unit_price = serializers.SerializerMethodField()
+    total_price = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CartItem
+        fields = ['id', 'product', 'quantity', 'unit_price', 'total_price', 'created_at', 'updated_at']
+
+    def get_unit_price(self, obj):
+        return f"{obj.product.price:.2f}"
+
+    def get_total_price(self, obj):
+        return f"{(obj.product.price * obj.quantity):.2f}"
+

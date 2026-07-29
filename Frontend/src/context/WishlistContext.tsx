@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import type { Product } from '@/types/product.types';
+import { productsService } from '@/services/products.service';
 import { storage } from '@/utils/helpers';
 import { CONFIG } from '@/constants/config';
 
@@ -18,14 +19,41 @@ export const WishlistProvider = ({ children }: { children: ReactNode }) => {
     return storage.get<Product[]>(CONFIG.WISHLIST_STORAGE_KEY) ?? [];
   });
 
+  // Fetch from Neon DB on mount / when token exists
+  useEffect(() => {
+    const token = storage.get<string>(CONFIG.TOKEN_KEY);
+    if (token) {
+      productsService.getWishlist().then((remoteItems) => {
+        if (Array.isArray(remoteItems)) {
+          const products = remoteItems.map((item) => item.product).filter(Boolean);
+          setItems(products);
+          storage.set(CONFIG.WISHLIST_STORAGE_KEY, products);
+        }
+      }).catch((err) => {
+        console.error('Failed to sync wishlist from database:', err);
+      });
+    }
+  }, []);
+
   useEffect(() => {
     storage.set(CONFIG.WISHLIST_STORAGE_KEY, items);
   }, [items]);
 
   const toggleWishlist = useCallback((product: Product) => {
+    const token = storage.get<string>(CONFIG.TOKEN_KEY);
     setItems((prev) => {
-      const exists = prev.find((p) => p.id === product.id);
-      return exists ? prev.filter((p) => p.id !== product.id) : [...prev, product];
+      const exists = prev.some((p) => p.id === product.id);
+      if (exists) {
+        if (token) {
+          productsService.removeFromWishlist(product.id).catch(console.error);
+        }
+        return prev.filter((p) => p.id !== product.id);
+      } else {
+        if (token) {
+          productsService.addToWishlist(product.id).catch(console.error);
+        }
+        return [...prev, product];
+      }
     });
   }, []);
 

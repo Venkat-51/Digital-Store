@@ -28,12 +28,13 @@ from reportlab.lib import colors
 
 from .models import (
     Category, Brand, Product, ProductImage, Specification,
-    UserProfile, Address, Order, OrderItem, WishlistItem
+    UserProfile, Address, Order, OrderItem, WishlistItem, CartItem
 )
 from .serializers import (
     CategorySerializer, ProductSerializer, AddressSerializer,
-    OrderSerializer, UserSerializer, WishlistItemSerializer
+    OrderSerializer, UserSerializer, WishlistItemSerializer, CartItemSerializer
 )
+
 from .authentication import generate_tokens_for_user, decode_token
 
 def get_authenticated_user(request):
@@ -69,19 +70,26 @@ def get_authenticated_user(request):
 
 def is_admin_user(user):
     """
-    Returns True if user is authenticated and (user.is_staff or user.is_superuser or matches ADMIN_EMAIL env).
-    Auto-syncs user.is_staff = True if user.email matches ADMIN_EMAIL.
+    Returns True if user is authenticated and (user.is_staff or user.is_superuser or matches any admin/owner email).
+    Auto-syncs user.is_staff = True if user.email matches any admin/owner email.
     """
     if not user or not user.is_authenticated:
         return False
-    admin_email = os.environ.get("ADMIN_EMAIL", "gvenkateswaran3@gmail.com").strip().lower()
+    admin_emails = {
+        os.environ.get("ADMIN_EMAIL", "gvenkateswaran3@gmail.com").strip().lower(),
+        os.environ.get("OWNER_EMAIL", "owner@lexicon.sg").strip().lower(),
+        "gvenkateswaran3@gmail.com",
+        "venkatguru2002@gmail.com",
+        "venkateswaranuec@gmail.com",
+    }
     user_email = (user.email or "").strip().lower()
-    if user_email and user_email == admin_email:
+    if user_email and user_email in admin_emails:
         if not user.is_staff:
             user.is_staff = True
             user.save(update_fields=['is_staff'])
         return True
     return bool(user.is_staff or user.is_superuser)
+
 
 def sync_user_phone(user):
 
@@ -1107,7 +1115,85 @@ class WishlistView(APIView):
         item.delete()
         return Response({"message": "Item removed from wishlist"})
 
+class CartView(APIView):
+    def get(self, request):
+        user = get_authenticated_user(request)
+        if not user:
+            return Response([])
+        items = CartItem.objects.filter(user=user).select_related('product')
+        serializer = CartItemSerializer(items, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        user = get_authenticated_user(request)
+        if not user:
+            return Response({"error": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        data = request.data or {}
+        product_id = data.get("product_id") or data.get("product")
+        quantity = int(data.get("quantity", 1))
+        if not product_id:
+            return Response({"error": "Product ID required"}, status=400)
+
+        product = Product.objects.filter(id=product_id).first()
+        if not product:
+            return Response({"error": "Product not found"}, status=404)
+
+        cart_item, created = CartItem.objects.get_or_create(user=user, product=product)
+        if not created:
+            cart_item.quantity += quantity
+        else:
+            cart_item.quantity = max(1, quantity)
+        cart_item.save()
+
+        serializer = CartItemSerializer(cart_item)
+        return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+    def patch(self, request, item_id=None):
+        user = get_authenticated_user(request)
+        if not user:
+            return Response({"error": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        target = item_id or request.data.get("item_id") or request.data.get("product_id")
+        cart_item = CartItem.objects.filter(user=user, id=target).first() if str(target).isdigit() else None
+        if not cart_item and str(target).isdigit():
+            cart_item = CartItem.objects.filter(user=user, product_id=int(target)).first()
+
+        if not cart_item:
+            return Response({"error": "Cart item not found"}, status=404)
+
+        quantity = int(request.data.get("quantity", 1))
+        if quantity <= 0:
+            cart_item.delete()
+            return Response({"message": "Cart item deleted"})
+        else:
+            cart_item.quantity = quantity
+            cart_item.save()
+            serializer = CartItemSerializer(cart_item)
+            return Response(serializer.data)
+
+    def delete(self, request, item_id=None):
+        user = get_authenticated_user(request)
+        if not user:
+            return Response({"error": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        if item_id == "clear" or request.path.endswith("/clear"):
+            CartItem.objects.filter(user=user).delete()
+            return Response({"message": "Cart cleared"})
+
+        target = item_id
+        cart_item = CartItem.objects.filter(user=user, id=target).first() if str(target).isdigit() else None
+        if not cart_item and str(target).isdigit():
+            cart_item = CartItem.objects.filter(user=user, product_id=int(target)).first()
+
+        if not cart_item:
+            return Response({"error": "Cart item not found"}, status=404)
+
+        cart_item.delete()
+        return Response({"message": "Item removed from cart"})
+
 class ProductCSVTemplateView(APIView):
+
     def get(self, request):
         user = get_authenticated_user(request)
         if not is_admin_user(user):
@@ -1271,4 +1357,5 @@ class ProductBulkUploadView(APIView):
             "failed_count": failed_count,
             "total_rows": total_rows,
             "errors": errors
-        }, status=status.HTTP_200_OK if success_count > 0 else status.HTTP_400_BAD_REQUEST)
+        }, status=status.HTTP_200_OK)
+

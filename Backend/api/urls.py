@@ -4,7 +4,7 @@ from .views import (
     ProductFeaturedView, ProductRelatedView, AuthRegisterView, AuthLoginView,
     AuthMeView, AuthLogoutView, AuthPasswordResetView, AuthPasswordResetConfirmView,
     AuthTokenRefreshView, AuthGoogleView, OrderCreateView, OrderDetailView, OrderCancelView, OrderInvoiceView,
-    AddressListView, AddressDetailView, AddressSetDefaultView, WishlistView,
+    AddressListView, AddressDetailView, AddressSetDefaultView, WishlistView, CartView,
     ProductCSVTemplateView, ProductBulkUploadView
 )
 
@@ -37,6 +37,10 @@ urlpatterns = [
     path('addresses/<int:pk>/set-default/', AddressSetDefaultView.as_view(), name='address-set-default'),
     path('wishlist/', WishlistView.as_view(), name='wishlist-list'),
     path('wishlist/<int:item_id>/', WishlistView.as_view(), name='wishlist-detail'),
+    path('cart/', CartView.as_view(), name='cart-list'),
+    path('cart/clear/', CartView.as_view(), name='cart-clear'),
+    path('cart/<int:item_id>/', CartView.as_view(), name='cart-detail'),
 ]
+
 
 

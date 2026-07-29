@@ -98,11 +98,16 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({ 
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.PRODUCTS] });
     } catch (err: any) {
       console.error('Bulk upload error:', err);
-      const serverMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to upload products CSV.';
-      setErrorMessage(serverMsg);
+      if (err.response?.data?.errors && Array.isArray(err.response.data.errors)) {
+        setUploadResult(err.response.data);
+      } else {
+        const serverMsg = err.response?.data?.error || err.response?.data?.detail || err.response?.data?.message || 'Failed to upload products CSV. Please check file format and admin login.';
+        setErrorMessage(serverMsg);
+      }
     } finally {
       setIsUploading(false);
     }
+
   };
 
   const handleReset = () => {
