@@ -56,7 +56,7 @@ const CheckoutPage: React.FC = () => {
       customer_name: user ? `${user.first_name} ${user.last_name || ''}`.trim() : '',
       customer_email: user?.email || '',
       customer_phone: user?.phone || '',
-      city: '',
+      city: 'Singapore',
       postal_code: '',
       address_line1: '',
       address_line2: '',
@@ -73,8 +73,6 @@ const CheckoutPage: React.FC = () => {
         setValue('customer_phone', user.phone);
       }
     }
-    // Ensure City is filled for first-time order
-    setValue('city', '');
   }, [user, setValue]);
 
   // Prefill shipping address with default saved address if available
@@ -84,14 +82,12 @@ const CheckoutPage: React.FC = () => {
       if (defaultAddr) {
         setValue('address_line1', defaultAddr.address_line1);
         setValue('address_line2', defaultAddr.address_line2 || '');
-        setValue('city', defaultAddr.city || '');
+        setValue('city', defaultAddr.city || 'Singapore');
         setValue('state', defaultAddr.state || '');
         setValue('postal_code', defaultAddr.postal_code);
       }
-    } else {
-      // First time order default
-      setValue('city', '');
     }
+    // Note: when no saved address, city defaults to 'Singapore' from defaultValues above — do NOT call setValue here
   }, [addresses, setValue]);
 
 

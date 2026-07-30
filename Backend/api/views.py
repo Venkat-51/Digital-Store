@@ -256,38 +256,85 @@ def generate_invoice_pdf_buffer(order):
     buffer.seek(0)
     return buffer
 
+def _build_gmail_api_service():
+    """
+    Builds and returns an authenticated Gmail API service object using token.json (OAuth2).
+    token.json is generated once by running: python gmail_setup.py
+    Returns None if token.json does not exist or is invalid.
+    """
+    try:
+        from google.oauth2.credentials import Credentials
+        from google.auth.transport.requests import Request
+        from googleapiclient.discovery import build
+
+        BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        token_path = os.path.join(BASE_DIR, 'token.json')
+        creds_path = os.path.join(BASE_DIR, 'credentials.json')
+
+        if not os.path.exists(token_path):
+            print(f"[Gmail API] token.json not found at {token_path}. Run: python gmail_setup.py")
+            return None
+
+        SCOPES = ['https://www.googleapis.com/auth/gmail.send']
+        creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+
+        if not creds.valid:
+            if creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+                # Save refreshed token
+                with open(token_path, 'w') as f:
+                    f.write(creds.to_json())
+                print("[Gmail API] Token refreshed successfully.")
+            else:
+                print("[Gmail API] Token is invalid and cannot be refreshed. Run: python gmail_setup.py")
+                return None
+
+        service = build('gmail', 'v1', credentials=creds)
+        return service
+    except Exception as e:
+        print(f"[Gmail API] Failed to build service: {e}")
+        return None
+
+
 def send_owner_email_invoice_async(order):
     """
-    Sends invoice PDF attachment to store owner's email address in background task.
+    Sends invoice PDF attachment to store owner's email.
+    PRIMARY:  Gmail API over HTTPS (port 443) — not blocked by ISPs/firewalls.
+    FALLBACK: SMTP (port 587) if Gmail API token.json is unavailable.
     Updates order.email_sent = True on success.
     """
     def _send():
+        import traceback
+        import base64
+
+        owner_email = os.environ.get("OWNER_EMAIL", "owner@lexicon.sg")
+        smtp_host   = os.environ.get("SMTP_HOST", "smtp.gmail.com")
+        smtp_port   = int(os.environ.get("SMTP_PORT", "587"))
+        smtp_user   = os.environ.get("SMTP_USER", "")
+        smtp_pass   = os.environ.get("SMTP_PASSWORD", "")
+
+        print(f"[Email Diag] Order #{order.order_number}: owner={owner_email} smtp_user='{smtp_user[:5] if smtp_user else 'EMPTY'}...' pass_set={'YES' if smtp_pass else 'NO'}")
+
         try:
-            owner_email = os.environ.get("OWNER_EMAIL", "owner@lexicon.sg")
-            smtp_host = os.environ.get("SMTP_HOST", "smtp.gmail.com")
-            smtp_port = int(os.environ.get("SMTP_PORT", 587))
-            smtp_user = os.environ.get("SMTP_USER", "")
-            smtp_pass = os.environ.get("SMTP_PASSWORD", "")
-
-            print(f"[Email Auto-Notifier] Preparing invoice PDF email for Order #{order.order_number} to {owner_email}...")
-
+            # Build the email message
+            print(f"[Email] Preparing invoice PDF for Order #{order.order_number} → {owner_email}")
             pdf_buffer = generate_invoice_pdf_buffer(order)
-            pdf_data = pdf_buffer.getvalue()
+            pdf_data   = pdf_buffer.getvalue()
 
             msg = MIMEMultipart()
-            msg['From'] = smtp_user or "noreply@lexicon.sg"
-            msg['To'] = owner_email
-            msg['Subject'] = f"🧾 New Confirmed Order Invoice - #{order.order_number}"
+            msg['From']    = smtp_user or "noreply@lexicon.sg"
+            msg['To']      = owner_email
+            msg['Subject'] = f"New Order Invoice - #{order.order_number}"
 
             body = (
                 f"Hello Store Owner,\n\n"
-                f"A new order #{order.order_number} has been confirmed.\n\n"
-                f"Customer: {order.customer_name}\n"
-                f"Email: {order.customer_email}\n"
-                f"Phone: {order.customer_phone}\n"
-                f"Total Amount: SGD ${order.total:.2f}\n\n"
-                f"The invoice PDF is attached to this email.\n\n"
-                f"Lexicon Technology Automated Order System"
+                f"Order #{order.order_number} has been confirmed.\n\n"
+                f"Customer : {order.customer_name}\n"
+                f"Email    : {order.customer_email}\n"
+                f"Phone    : {order.customer_phone}\n"
+                f"Total    : SGD ${order.total:.2f}\n\n"
+                f"Invoice PDF is attached.\n\n"
+                f"— Lexicon Technology Automated Order System"
             )
             msg.attach(MIMEText(body, 'plain'))
 
@@ -295,18 +342,39 @@ def send_owner_email_invoice_async(order):
             part['Content-Disposition'] = f'attachment; filename="invoice-{order.order_number}.pdf"'
             msg.attach(part)
 
+            # ── PRIMARY: Gmail API (HTTPS port 443) ──────────────────────────
+            service = _build_gmail_api_service()
+            if service:
+                print(f"[Email] Sending via Gmail API (HTTPS)...")
+                raw_message = base64.urlsafe_b64encode(msg.as_bytes()).decode('utf-8')
+                service.users().messages().send(
+                    userId='me',
+                    body={'raw': raw_message}
+                ).execute()
+                print(f"[Email] SUCCESS via Gmail API — invoice sent to {owner_email}")
+                Order.objects.filter(id=order.id).update(email_sent=True)
+                return
+
+            # ── FALLBACK: SMTP (port 587) ────────────────────────────────────
             if smtp_user and smtp_pass:
-                with smtplib.SMTP(smtp_host, smtp_port) as server:
+                print(f"[Email] Gmail API unavailable. Trying SMTP {smtp_host}:{smtp_port}...")
+                with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
+                    server.ehlo()
                     server.starttls()
+                    server.ehlo()
                     server.login(smtp_user, smtp_pass)
                     server.send_message(msg)
-                print(f"[Email Auto-Notifier] Email with PDF attachment sent to {owner_email} successfully.")
+                print(f"[Email] SUCCESS via SMTP — invoice sent to {owner_email}")
+                Order.objects.filter(id=order.id).update(email_sent=True)
             else:
-                print(f"[Email Auto-Notifier Log] SMTP credentials not set. Simulated email send for Order #{order.order_number} to {owner_email}.")
+                print(f"[Email] SKIPPED — no Gmail API token AND SMTP credentials missing. Run: python gmail_setup.py")
 
-            Order.objects.filter(id=order.id).update(email_sent=True)
+        except smtplib.SMTPAuthenticationError as e:
+            print(f"[Email] SMTP AUTH FAILED: {e}")
+            print(f"[Email] Use a Gmail App Password: https://myaccount.google.com/apppasswords")
         except Exception as e:
-            print(f"[Email Auto-Notifier Error] Failed to send email invoice for #{order.order_number}: {e}")
+            print(f"[Email] ERROR for Order #{order.order_number}: {e}")
+            traceback.print_exc()
 
     t = threading.Thread(target=_send, daemon=True)
     t.start()
@@ -314,41 +382,55 @@ def send_owner_email_invoice_async(order):
 def send_owner_whatsapp_invoice_async(order):
     """
     Dispatches order invoice notification to owner WhatsApp in background thread.
-    Updates order.whatsapp_sent = True on success.
+    Updates order.whatsapp_sent = True only on confirmed HTTP success.
     """
     def _send():
+        import traceback
         try:
             target_phone = os.environ.get("OWNER_WHATSAPP", "919500882090")
-            items_summary = ", ".join([f"{item.product_name} (x{item.quantity})" for item in order.items.all()]) or "Products"
-            pdf_url = f"https://lexicon-self.vercel.app/orders/{order.order_number}"
-            
-            message = (
-                f"🧾 *NEW ORDER INVOICE - LEXICON TECHNOLOGY*\n\n"
-                f"📌 *Order Number*: #{order.order_number}\n"
-                f"👤 *Customer*: {order.customer_name}\n"
-                f"📞 *Phone*: {order.customer_phone}\n"
-                f"✉️ *Email*: {order.customer_email}\n"
-                f"🛍️ *Items*: {items_summary}\n"
-                f"💰 *Total Amount*: SGD ${order.total:.2f}\n"
-                f"Status: {order.status.upper()}\n\n"
-                f"📄 *Download Invoice PDF*: {pdf_url}"
-            )
-            
-            print(f"[WhatsApp Auto-Notifier] Sending Invoice PDF notification for Order #{order.order_number} to Owner (+{target_phone})...")
-            
-            callmebot_url = f"https://api.callmebot.com/whatsapp.php?phone=+{target_phone}&text={urllib.parse.quote(message)}&apikey=free"
-            req = urllib.request.Request(callmebot_url, headers={'User-Agent': 'Mozilla/5.0'})
-            try:
-                with urllib.request.urlopen(req, timeout=5) as response:
-                    print(f"[WhatsApp Auto-Notifier] Response Code: {response.getcode()}")
-            except Exception as req_err:
-                print(f"[WhatsApp Auto-Notifier Log] Direct Webhook Note: {req_err}")
+            callmebot_apikey = os.environ.get("CALLMEBOT_APIKEY", "").strip()
 
-            print(f"[WhatsApp Auto-Notifier] Order #{order.order_number} Invoice dispatched to Owner WhatsApp.")
-            
-            Order.objects.filter(id=order.id).update(whatsapp_sent=True)
+            # --- Diagnostic: log config so misconfiguration is visible ---
+            print(f"[WA Diag] Order #{order.order_number}: target_phone='{target_phone}' apikey_set={'YES' if callmebot_apikey else 'NO (set CALLMEBOT_APIKEY in .env)'}")
+
+            if not callmebot_apikey:
+                print(f"[WhatsApp Auto-Notifier] SKIPPED — CALLMEBOT_APIKEY not set in .env. Go to wa.me/34644597352, send 'I allow callmebot to send me messages', get your apikey, then add CALLMEBOT_APIKEY=<your_key> to .env")
+                return
+
+            items_summary = ", ".join([f"{item.product_name} (x{item.quantity})" for item in order.items.all()]) or "Products"
+
+            message = (
+                f"NEW ORDER - LEXICON TECHNOLOGY\n\n"
+                f"Order: #{order.order_number}\n"
+                f"Customer: {order.customer_name}\n"
+                f"Phone: {order.customer_phone}\n"
+                f"Email: {order.customer_email}\n"
+                f"Items: {items_summary}\n"
+                f"Total: SGD ${order.total:.2f}\n"
+                f"Status: {order.status.upper()}"
+            )
+
+            print(f"[WhatsApp Auto-Notifier] Sending notification for Order #{order.order_number} to +{target_phone}...")
+
+            callmebot_url = (
+                f"https://api.callmebot.com/whatsapp.php"
+                f"?phone=+{target_phone}"
+                f"&text={urllib.parse.quote(message)}"
+                f"&apikey={callmebot_apikey}"
+            )
+            req = urllib.request.Request(callmebot_url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=15) as response:
+                resp_code = response.getcode()
+                resp_body = response.read().decode('utf-8', errors='replace')[:200]
+                print(f"[WhatsApp Auto-Notifier] Response {resp_code}: {resp_body}")
+                if resp_code == 200:
+                    Order.objects.filter(id=order.id).update(whatsapp_sent=True)
+                    print(f"[WhatsApp Auto-Notifier] SUCCESS — whatsapp_sent=True set for Order #{order.order_number}")
+                else:
+                    print(f"[WhatsApp Auto-Notifier] Non-200 response ({resp_code}) — whatsapp_sent stays False")
         except Exception as e:
-            print(f"[WhatsApp Auto-Notifier Error] Failed to send WhatsApp notification for #{order.order_number}: {e}")
+            print(f"[WhatsApp Auto-Notifier] ERROR for Order #{order.order_number}: {e}")
+            traceback.print_exc()
 
     t = threading.Thread(target=_send, daemon=True)
     t.start()
