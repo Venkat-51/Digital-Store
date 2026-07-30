@@ -73,7 +73,7 @@ const CartPage: React.FC = () => {
 
                   <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-4 pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-100">
                     <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden">
-                      <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="px-2.5 sm:px-3 py-1 sm:py-2 hover:bg-gray-100 text-xs sm:text-sm">−</button>
+                      <button onClick={() => item.quantity > 1 && updateQuantity(item.id, item.quantity - 1)} disabled={item.quantity <= 1} className="px-2.5 sm:px-3 py-1 sm:py-2 hover:bg-gray-100 text-xs sm:text-sm disabled:opacity-30 disabled:cursor-not-allowed">−</button>
                       <span className="px-3 sm:px-4 text-xs sm:text-sm font-bold">{item.quantity}</span>
                       <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="px-2.5 sm:px-3 py-1 sm:py-2 hover:bg-gray-100 text-xs sm:text-sm">+</button>
                     </div>
@@ -109,8 +109,8 @@ const CartPage: React.FC = () => {
               <p className="text-xs text-gray-400 text-center mb-4">Add ${(80 - subtotalNum).toFixed(2)} more for free shipping</p>
             )}
             <Link to={ROUTES.CHECKOUT}>
-              <Button variant="primary" size="lg" fullWidth rightIcon={<ArrowRight size={16} />}>
-                Proceed to Checkout
+              <Button variant="secondary" size="lg" fullWidth rightIcon={<ArrowRight size={16} />} className="bg-amber-400 hover:bg-amber-500 text-gray-950 font-black border-amber-400 shadow-md active:scale-95 transition-all">
+                Buy Now
               </Button>
             </Link>
             <Link to={ROUTES.SHOP}>

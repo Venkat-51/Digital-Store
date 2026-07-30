@@ -112,8 +112,9 @@ const CartDrawer: React.FC = () => {
                           {/* Quantity */}
                           <div className="flex items-center gap-1">
                             <button
-                              onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                              className="w-7 h-7 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
+                              onClick={() => item.quantity > 1 && updateQuantity(item.id, item.quantity - 1)}
+                              disabled={item.quantity <= 1}
+                              className="w-7 h-7 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                               aria-label="Decrease quantity"
                             >
                               <Minus size={12} />
