@@ -267,12 +267,19 @@ def _build_gmail_api_service():
         from google.auth.transport.requests import Request
         from googleapiclient.discovery import build
 
-        BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        token_path = os.path.join(BASE_DIR, 'token.json')
-        creds_path = os.path.join(BASE_DIR, 'credentials.json')
+        # Use the directory that contains api/views.py → that is the Backend/ folder
+        # os.path.abspath(__file__) = .../Backend/api/views.py
+        # os.path.dirname(...)      = .../Backend/api/
+        # os.path.dirname(...)      = .../Backend/    ← correct BASE_DIR
+        _this_file = os.path.abspath(__file__)           # .../Backend/api/views.py
+        _api_dir   = os.path.dirname(_this_file)         # .../Backend/api
+        _base_dir  = os.path.dirname(_api_dir)           # .../Backend
+
+        token_path = os.path.join(_base_dir, 'token.json')
+        print(f"[Gmail API] Looking for token.json at: {token_path}")
 
         if not os.path.exists(token_path):
-            print(f"[Gmail API] token.json not found at {token_path}. Run: python gmail_setup.py")
+            print(f"[Gmail API] token.json NOT FOUND. Run: cd Backend && venv\\Scripts\\python gmail_setup.py")
             return None
 
         SCOPES = ['https://www.googleapis.com/auth/gmail.send']
@@ -281,18 +288,19 @@ def _build_gmail_api_service():
         if not creds.valid:
             if creds.expired and creds.refresh_token:
                 creds.refresh(Request())
-                # Save refreshed token
                 with open(token_path, 'w') as f:
                     f.write(creds.to_json())
-                print("[Gmail API] Token refreshed successfully.")
+                print("[Gmail API] Token refreshed and saved.")
             else:
-                print("[Gmail API] Token is invalid and cannot be refreshed. Run: python gmail_setup.py")
+                print("[Gmail API] Token invalid/expired. Run gmail_setup.py again.")
                 return None
 
         service = build('gmail', 'v1', credentials=creds)
+        print("[Gmail API] Service built successfully.")
         return service
     except Exception as e:
         print(f"[Gmail API] Failed to build service: {e}")
+        import traceback; traceback.print_exc()
         return None
 
 
@@ -421,13 +429,14 @@ def send_owner_whatsapp_invoice_async(order):
             req = urllib.request.Request(callmebot_url, headers={'User-Agent': 'Mozilla/5.0'})
             with urllib.request.urlopen(req, timeout=15) as response:
                 resp_code = response.getcode()
-                resp_body = response.read().decode('utf-8', errors='replace')[:200]
+                resp_body = response.read().decode('utf-8', errors='replace')[:300]
                 print(f"[WhatsApp Auto-Notifier] Response {resp_code}: {resp_body}")
-                if resp_code == 200:
+                # CallMeBot returns 200 on success, 203 also means message queued/sent
+                if resp_code in (200, 203):
                     Order.objects.filter(id=order.id).update(whatsapp_sent=True)
-                    print(f"[WhatsApp Auto-Notifier] SUCCESS — whatsapp_sent=True set for Order #{order.order_number}")
+                    print(f"[WhatsApp Auto-Notifier] SUCCESS (HTTP {resp_code}) — whatsapp_sent=True for Order #{order.order_number}")
                 else:
-                    print(f"[WhatsApp Auto-Notifier] Non-200 response ({resp_code}) — whatsapp_sent stays False")
+                    print(f"[WhatsApp Auto-Notifier] Non-success response ({resp_code}) — check your CALLMEBOT_APIKEY in .env")
         except Exception as e:
             print(f"[WhatsApp Auto-Notifier] ERROR for Order #{order.order_number}: {e}")
             traceback.print_exc()
@@ -508,7 +517,9 @@ class ProductListView(APIView):
                     Q(category__name__icontains=sp) |
                     Q(brand__name__icontains=sp) |
                     Q(description__icontains=sp)
-                )
+                ).distinct()
+            else:
+                queryset = queryset.distinct()
 
             if ordering_param:
                 if ordering_param in ['price', '-price', 'name', '-name', 'stock', '-stock']:

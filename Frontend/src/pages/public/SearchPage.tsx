@@ -24,10 +24,13 @@ const SearchPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b border-gray-100 py-8">
+      {/* Search header — form is hidden on desktop (Navbar handles search there) */}
+      <div className="bg-white border-b border-gray-100 py-6 md:py-4">
         <div className="container-wide">
           <Breadcrumb items={[{ label: 'Search' }]} />
-          <div className="mt-5 max-w-2xl">
+
+          {/* Search form — visible only on mobile; desktop uses Navbar search bar */}
+          <div className="mt-5 max-w-2xl md:hidden">
             <form onSubmit={handleSearch} className="flex gap-3">
               <div className="relative flex-1">
                 <SearchIcon size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -44,29 +47,29 @@ const SearchPage: React.FC = () => {
                 Search
               </button>
             </form>
-
-            {/* Recent searches */}
-            {!query && recentSearches.length > 0 && (
-              <div className="mt-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Recent Searches</span>
-                  <button onClick={clearRecentSearches} className="text-xs text-gray-400 hover:text-gray-600">Clear</button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {recentSearches.map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => { setQuery(s); setSearchParams({ q: s }); }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-full text-sm font-medium text-gray-600 transition-colors"
-                    >
-                      <Clock size={12} />
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
+
+          {/* Recent searches — always visible */}
+          {!query && recentSearches.length > 0 && (
+            <div className="mt-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Recent Searches</span>
+                <button onClick={clearRecentSearches} className="text-xs text-gray-400 hover:text-gray-600">Clear</button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {recentSearches.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => { setQuery(s); setSearchParams({ q: s }); }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-full text-sm font-medium text-gray-600 transition-colors"
+                  >
+                    <Clock size={12} />
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
