@@ -29,11 +29,45 @@ class CategoryAdmin(admin.ModelAdmin):
 class BrandAdmin(admin.ModelAdmin):
     list_display = ['id', 'name', 'slug']
 
+class ProductImageInline(admin.TabularInline):
+    model = ProductImage
+    extra = 1
+    fields = ['image', 'is_primary']
+
+class SpecificationInline(admin.TabularInline):
+    model = Specification
+    extra = 0
+
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ['id', 'name', 'category', 'price', 'stock', 'is_in_stock', 'is_featured']
+    list_display = ['id', 'name', 'sku', 'category', 'price', 'stock', 'is_in_stock', 'is_featured', 'thumbnail']
     list_filter = ['category', 'is_featured', 'is_in_stock']
     search_fields = ['name', 'sku']
+    list_editable = ['thumbnail']
+    inlines = [ProductImageInline, SpecificationInline]
+
+    def save_formset(self, request, form, formset, change):
+        """When ProductImage is saved via admin, auto-sync Product.thumbnail."""
+        instances = formset.save()
+        if formset.model == ProductImage:
+            for img in instances:
+                if img.is_primary:
+                    product = img.product
+                    product.thumbnail = img.image
+                    product.save(update_fields=['thumbnail'])
+        super().save_formset(request, form, formset, change)
+
+@admin.register(ProductImage)
+class ProductImageAdmin(admin.ModelAdmin):
+    list_display = ['id', 'product', 'image', 'is_primary']
+    list_filter = ['is_primary']
+    search_fields = ['product__name']
+
+@admin.register(Specification)
+class SpecificationAdmin(admin.ModelAdmin):
+    list_display = ['id', 'product', 'name', 'value']
+    search_fields = ['product__name', 'name']
+
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):

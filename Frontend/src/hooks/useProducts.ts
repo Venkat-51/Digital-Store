@@ -42,6 +42,6 @@ export const useProductImage = (productId: number) => {
     queryKey: ['productImage', productId],
     queryFn: () => productsService.getImage(productId),
     enabled: !!productId,
-    staleTime: 60 * 60 * 1000, // 1 hour cache
+    staleTime: 5 * 60 * 1000, // 5 minutes — matches other product queries
   });
 };

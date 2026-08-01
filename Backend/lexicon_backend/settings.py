@@ -93,13 +93,55 @@ WSGI_APPLICATION = 'lexicon_backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    "default": dj_database_url.config(
-        default=os.environ.get("DATABASE_URL") or f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
-        conn_max_age=0,
-        conn_health_checks=True,
-    )
-}
+import socket
+import dj_database_url
+from urllib.parse import urlparse
+
+database_url = os.environ.get("DATABASE_URL")
+use_sqlite = False
+
+if database_url:
+    try:
+        parsed = urlparse(database_url)
+        host = parsed.hostname
+        if host:
+            # Temporarily set 2-second timeout for DNS check then restore default
+            socket.setdefaulttimeout(2.0)
+            socket.gethostbyname(host)
+            socket.setdefaulttimeout(None)
+    except Exception as e:
+        socket.setdefaulttimeout(None)
+        print(f"\n[DATABASE CONNECTION WARNING] Failed to resolve PostgreSQL host '{host}': {e}")
+        print("Falling back to local SQLite database (db.sqlite3) for offline/local development...\n")
+        use_sqlite = True
+
+
+if use_sqlite or not database_url:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
+else:
+    DATABASES = {
+        "default": dj_database_url.config(
+            default=database_url,
+            conn_max_age=0,
+            conn_health_checks=True,
+        )
+    }
+    DATABASES["default"]["DISABLE_SERVER_SIDE_CURSORS"] = True
+    if "postgresql" in DATABASES["default"]["ENGINE"]:
+        DATABASES["default"].setdefault("OPTIONS", {})
+        DATABASES["default"]["OPTIONS"].update({
+            "keepalives": 1,
+            "keepalives_idle": 30,
+            "keepalives_interval": 10,
+            "keepalives_count": 5,
+        })
+
+
 
 
 
@@ -138,6 +180,10 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

@@ -30,13 +30,40 @@ export const formatDateTime = (dateString: string): string => {
   });
 };
 
+/** Format image URL ensuring proper base URL for media files */
+export const formatImageUrl = (url?: string): string => {
+  if (!url || url.trim() === '' || url === '/placeholder-product.png') {
+    return 'https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=600&auto=format&fit=crop&q=80';
+  }
+  
+  const cleanUrl = url.trim();
+
+  // If relative media URL, prepend backend base URL
+  if (cleanUrl.startsWith('/media/') || cleanUrl.startsWith('media/')) {
+    const backendBase = CONFIG.API_BASE_URL.replace(/\/api\/?$/, '');
+    return `${backendBase}/${cleanUrl.replace(/^\//, '')}`;
+  }
+
+  // Handle 127.0.0.1 vs localhost domain conversion
+  if (cleanUrl.includes('127.0.0.1:8000') && typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    return cleanUrl.replace('127.0.0.1:8000', 'localhost:8000');
+  }
+
+  return cleanUrl;
+};
+
 /** Get primary image URL from product images array */
 export const getProductImage = (images?: { image: string; is_primary: boolean }[], thumbnail?: string): string => {
-  if (thumbnail) return thumbnail;
-  if (!images || images.length === 0) return '/placeholder-product.png';
-  const primary = images.find((img) => img.is_primary);
-  return primary ? primary.image : images[0].image;
+  let selectedUrl = '';
+  if (thumbnail && thumbnail.trim()) {
+    selectedUrl = thumbnail;
+  } else if (images && images.length > 0) {
+    const primary = images.find((img) => img.is_primary);
+    selectedUrl = primary ? primary.image : images[0].image;
+  }
+  return formatImageUrl(selectedUrl);
 };
+
 
 /** Calculate discount percentage */
 export const calcDiscount = (price: string, comparePrice: string): number => {

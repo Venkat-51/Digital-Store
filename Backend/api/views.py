@@ -182,16 +182,36 @@ def generate_invoice_pdf_buffer(order):
     elements.append(header_table)
     elements.append(Spacer(1, 10))
 
+    c_name = order.customer_name or f"{order.user.first_name} {order.user.last_name}".strip() if order.user else "Valued Customer"
+    c_email = order.customer_email or (order.user.email if order.user else "")
+    c_phone = order.customer_phone or (shipping_addr.get('phone', ''))
+
+    ship_name = shipping_addr.get('full_name') or c_name
+    ship_line1 = shipping_addr.get('address_line1', '')
+    ship_line2 = shipping_addr.get('address_line2', '')
+    ship_city = shipping_addr.get('city', 'Singapore')
+    ship_postal = shipping_addr.get('postal_code', '')
+    ship_country = shipping_addr.get('country', 'Singapore')
+    ship_phone = shipping_addr.get('phone') or c_phone
+
+    ship_addr_text = f"<b>{ship_name}</b><br/>{ship_line1}"
+    if ship_line2:
+        ship_addr_text += f"<br/>{ship_line2}"
+    ship_addr_text += f"<br/>{ship_city} {ship_postal}, {ship_country}"
+    if ship_phone:
+        ship_addr_text += f"<br/>Phone: {ship_phone}"
+
     bill_ship_data = [
         [
             Paragraph("<b>Bill To:</b>", header_style),
             Paragraph("<b>Ship To:</b>", header_style)
         ],
         [
-            Paragraph(f"{customer.get('first_name', '')} {customer.get('last_name', '')}<br/>Email: {customer.get('email', '')}", normal_style),
-            Paragraph(f"{shipping_addr.get('full_name', 'Customer')}<br/>{shipping_addr.get('address_line1', '')}<br/>{shipping_addr.get('city', '')} {shipping_addr.get('postal_code', '')}<br/>Phone: {shipping_addr.get('phone', '')}", normal_style)
+            Paragraph(f"<b>{c_name}</b><br/>Email: {c_email}<br/>Phone: {c_phone}", normal_style),
+            Paragraph(ship_addr_text, normal_style)
         ]
     ]
+
     bill_ship_table = Table(bill_ship_data, colWidths=[270, 270])
     bill_ship_table.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
@@ -306,82 +326,98 @@ def _build_gmail_api_service():
 
 def send_owner_email_invoice_async(order):
     """
-    Sends invoice PDF attachment to store owner's email.
-    PRIMARY:  Gmail API over HTTPS (port 443) — not blocked by ISPs/firewalls.
-    FALLBACK: SMTP (port 587) if Gmail API token.json is unavailable.
-    Updates order.email_sent = True on success.
+    Dispatches order invoice emails in background thread to both:
+    1. The customer (order.customer_email) - Order Confirmation & Invoice
+    2. The store owner (OWNER_EMAIL/ADMIN_EMAIL) - New Order Notification
     """
     def _send():
         import traceback
         import base64
 
-        owner_email = os.environ.get("OWNER_EMAIL", "owner@lexicon.sg")
         smtp_host   = os.environ.get("SMTP_HOST", "smtp.gmail.com")
         smtp_port   = int(os.environ.get("SMTP_PORT", "587"))
         smtp_user   = os.environ.get("SMTP_USER", "")
         smtp_pass   = os.environ.get("SMTP_PASSWORD", "")
+        owner_email = os.environ.get("OWNER_EMAIL", "venkateswaranuec@gmail.com").strip()
 
-        print(f"[Email Diag] Order #{order.order_number}: owner={owner_email} smtp_user='{smtp_user[:5] if smtp_user else 'EMPTY'}...' pass_set={'YES' if smtp_pass else 'NO'}")
+        # Build list of recipient emails: (email, is_owner_copy)
+        recipients = []
+        cust_email = (order.customer_email or "").strip()
+        if cust_email and "@" in cust_email:
+            recipients.append((cust_email, False))
+
+        if owner_email and "@" in owner_email and not any(r[0].lower() == owner_email.lower() for r in recipients):
+            recipients.append((owner_email, True))
+
+        if not recipients:
+            print(f"[Email] SKIPPED Order #{order.order_number} - no valid recipient emails.")
+            return
 
         try:
-            # Build the email message
-            print(f"[Email] Preparing invoice PDF for Order #{order.order_number} → {owner_email}")
+            print(f"[Email] Preparing invoice PDF for Order #{order.order_number}...")
             pdf_buffer = generate_invoice_pdf_buffer(order)
             pdf_data   = pdf_buffer.getvalue()
 
-            msg = MIMEMultipart()
-            msg['From']    = smtp_user or "noreply@lexicon.sg"
-            msg['To']      = owner_email
-            msg['Subject'] = f"New Order Invoice - #{order.order_number}"
-
-            body = (
-                f"Hello Store Owner,\n\n"
-                f"Order #{order.order_number} has been confirmed.\n\n"
-                f"Customer : {order.customer_name}\n"
-                f"Email    : {order.customer_email}\n"
-                f"Phone    : {order.customer_phone}\n"
-                f"Total    : SGD ${order.total:.2f}\n\n"
-                f"Invoice PDF is attached.\n\n"
-                f"— Lexicon Technology Automated Order System"
-            )
-            msg.attach(MIMEText(body, 'plain'))
-
-            part = MIMEApplication(pdf_data, Name=f"invoice-{order.order_number}.pdf")
-            part['Content-Disposition'] = f'attachment; filename="invoice-{order.order_number}.pdf"'
-            msg.attach(part)
-
-            # ── PRIMARY: Gmail API (HTTPS port 443) ──────────────────────────
             service = _build_gmail_api_service()
-            if service:
-                print(f"[Email] Sending via Gmail API (HTTPS)...")
-                raw_message = base64.urlsafe_b64encode(msg.as_bytes()).decode('utf-8')
-                service.users().messages().send(
-                    userId='me',
-                    body={'raw': raw_message}
-                ).execute()
-                print(f"[Email] SUCCESS via Gmail API — invoice sent to {owner_email}")
-                Order.objects.filter(id=order.id).update(email_sent=True)
-                return
 
-            # ── FALLBACK: SMTP (port 587) ────────────────────────────────────
-            if smtp_user and smtp_pass:
-                print(f"[Email] Gmail API unavailable. Trying SMTP {smtp_host}:{smtp_port}...")
-                with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
-                    server.ehlo()
-                    server.starttls()
-                    server.ehlo()
-                    server.login(smtp_user, smtp_pass)
-                    server.send_message(msg)
-                print(f"[Email] SUCCESS via SMTP — invoice sent to {owner_email}")
-                Order.objects.filter(id=order.id).update(email_sent=True)
-            else:
-                print(f"[Email] SKIPPED — no Gmail API token AND SMTP credentials missing. Run: python gmail_setup.py")
+            for target_email, is_owner in recipients:
+                msg = MIMEMultipart()
+                msg['From'] = smtp_user or "noreply@lexicon.sg"
+                msg['To']   = target_email
+
+                if is_owner:
+                    msg['Subject'] = f"New Order Received - #{order.order_number}"
+                    body = (
+                        f"Hello Store Owner,\n\n"
+                        f"A new order #{order.order_number} has been confirmed.\n\n"
+                        f"Customer : {order.customer_name}\n"
+                        f"Email    : {order.customer_email}\n"
+                        f"Phone    : {order.customer_phone}\n"
+                        f"Total    : SGD ${order.total:.2f}\n\n"
+                        f"Invoice PDF is attached.\n\n"
+                        f"- Lexicon Technology Automated Order System"
+                    )
+                else:
+                    msg['Subject'] = f"Order Confirmation & Invoice - #{order.order_number}"
+                    body = (
+                        f"Dear {order.customer_name},\n\n"
+                        f"Thank you for shopping with Lexicon Technology!\n"
+                        f"Your order #{order.order_number} has been confirmed.\n\n"
+                        f"Total Amount: SGD ${order.total:.2f}\n\n"
+                        f"Your tax invoice is attached as a PDF.\n\n"
+                        f"Best regards,\n"
+                        f"Lexicon Technology Team"
+                    )
+
+                msg.attach(MIMEText(body, 'plain'))
+                part = MIMEApplication(pdf_data, Name=f"invoice-{order.order_number}.pdf")
+                part.add_header('Content-Disposition', 'attachment', filename=f"invoice-{order.order_number}.pdf")
+                msg.attach(part)
+
+                # 1. Primary: Gmail API
+                if service:
+                    raw_message = base64.urlsafe_b64encode(msg.as_bytes()).decode('utf-8')
+                    service.users().messages().send(userId='me', body={'raw': raw_message}).execute()
+                    print(f"[Email] SUCCESS via Gmail API -> Sent invoice to {target_email}")
+                # 2. Fallback: SMTP
+                elif smtp_user and smtp_pass:
+                    with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
+                        server.ehlo()
+                        server.starttls()
+                        server.ehlo()
+                        server.login(smtp_user, smtp_pass)
+                        server.send_message(msg)
+                    print(f"[Email] SUCCESS via SMTP -> Sent invoice to {target_email}")
+                else:
+                    print(f"[Email] SKIPPED for {target_email} - SMTP/Gmail credentials missing.")
+
+            Order.objects.filter(id=order.id).update(email_sent=True)
 
         except smtplib.SMTPAuthenticationError as e:
             print(f"[Email] SMTP AUTH FAILED: {e}")
             print(f"[Email] Use a Gmail App Password: https://myaccount.google.com/apppasswords")
         except Exception as e:
-            print(f"[Email] ERROR for Order #{order.order_number}: {e}")
+            print(f"[Email ERROR] Failed sending invoice for Order #{order.order_number}: {e}")
             traceback.print_exc()
 
     t = threading.Thread(target=_send, daemon=True)
@@ -477,107 +513,142 @@ class CategoryListView(APIView):
 
 class ProductListView(APIView):
     def get(self, request):
-        try:
-            ensure_database_seeded()
-        except Exception:
-            pass
+        from django.db import connection
 
-        try:
-            queryset = Product.objects.select_related('category', 'brand').prefetch_related('images', 'specifications').all()
-
-            category_param = request.query_params.get('category', '').strip().lower()
-            min_price_param = request.query_params.get('min_price')
-            max_price_param = request.query_params.get('max_price')
-            in_stock_param = request.query_params.get('in_stock')
-            search_param = request.query_params.get('search') or request.query_params.get('q')
-            ordering_param = request.query_params.get('ordering')
-
-            if category_param and category_param != 'all':
-                queryset = queryset.filter(Q(category__slug=category_param) | Q(category__name__iexact=category_param))
-
-            if min_price_param:
+        for attempt in range(2):
+            try:
                 try:
-                    queryset = queryset.filter(price__gte=float(min_price_param))
-                except ValueError:
+                    ensure_database_seeded()
+                except Exception:
                     pass
 
-            if max_price_param:
+                queryset = Product.objects.select_related('category', 'brand').prefetch_related('images', 'specifications').all()
+
+                category_param = request.query_params.get('category', '').strip().lower()
+                min_price_param = request.query_params.get('min_price')
+                max_price_param = request.query_params.get('max_price')
+                in_stock_param = request.query_params.get('in_stock')
+                search_param = request.query_params.get('search') or request.query_params.get('q')
+                ordering_param = request.query_params.get('ordering')
+
+                if category_param and category_param != 'all':
+                    queryset = queryset.filter(Q(category__slug=category_param) | Q(category__name__iexact=category_param))
+
+                if min_price_param:
+                    try:
+                        queryset = queryset.filter(price__gte=float(min_price_param))
+                    except ValueError:
+                        pass
+
+                if max_price_param:
+                    try:
+                        queryset = queryset.filter(price__lte=float(max_price_param))
+                    except ValueError:
+                        pass
+
+                if in_stock_param in ['true', '1', True]:
+                    queryset = queryset.filter(stock__gt=0)
+
+                if search_param:
+                    sp = search_param.strip()
+                    queryset = queryset.filter(
+                        Q(name__icontains=sp) |
+                        Q(category__name__icontains=sp) |
+                        Q(brand__name__icontains=sp) |
+                        Q(description__icontains=sp)
+                    ).distinct()
+                else:
+                    queryset = queryset.distinct()
+
+                if ordering_param:
+                    if ordering_param in ['price', '-price', 'name', '-name', 'stock', '-stock']:
+                        queryset = queryset.order_by(ordering_param)
+                else:
+                    queryset = queryset.order_by('id')
+
                 try:
-                    queryset = queryset.filter(price__lte=float(max_price_param))
-                except ValueError:
-                    pass
+                    page_size = int(request.query_params.get('page_size', 0))
+                except (ValueError, TypeError):
+                    page_size = 0
 
-            if in_stock_param in ['true', '1', True]:
-                queryset = queryset.filter(stock__gt=0)
+                try:
+                    page = int(request.query_params.get('page', 1))
+                except (ValueError, TypeError):
+                    page = 1
 
-            if search_param:
-                sp = search_param.strip()
-                queryset = queryset.filter(
-                    Q(name__icontains=sp) |
-                    Q(category__name__icontains=sp) |
-                    Q(brand__name__icontains=sp) |
-                    Q(description__icontains=sp)
-                ).distinct()
-            else:
-                queryset = queryset.distinct()
+                total_count = queryset.count()
 
-            if ordering_param:
-                if ordering_param in ['price', '-price', 'name', '-name', 'stock', '-stock']:
-                    queryset = queryset.order_by(ordering_param)
-            else:
-                queryset = queryset.order_by('id')
+                if page_size > 0:
+                    start = (page - 1) * page_size
+                    end = start + page_size
+                    paginated_qs = queryset[start:end]
+                else:
+                    paginated_qs = queryset
 
-            try:
-                page_size = int(request.query_params.get('page_size', 0))
-            except (ValueError, TypeError):
-                page_size = 0
+                serializer = ProductSerializer(paginated_qs, many=True)
 
-            try:
-                page = int(request.query_params.get('page', 1))
-            except (ValueError, TypeError):
-                page = 1
+                return Response({
+                    "count": total_count,
+                    "next": None,
+                    "previous": None,
+                    "results": serializer.data
+                })
 
-            total_count = queryset.count()
+            except Exception as e:
+                print(f"ProductListView Attempt {attempt+1} Error: {e}")
+                connection.close()
+                if attempt == 1:
+                    return Response({
+                        "count": 0,
+                        "next": None,
+                        "previous": None,
+                        "results": []
+                    })
 
-            if page_size > 0:
-                start = (page - 1) * page_size
-                end = start + page_size
-                paginated_qs = queryset[start:end]
-            else:
-                paginated_qs = queryset
-
-            serializer = ProductSerializer(paginated_qs, many=True)
-
-            return Response({
-                "count": total_count,
-                "next": None,
-                "previous": None,
-                "results": serializer.data
-            })
-        except Exception as e:
-            print(f"ProductListView Error: {e}")
-            return Response({
-                "count": 0,
-                "next": None,
-                "previous": None,
-                "results": []
-            })
 
 class ProductDetailView(APIView):
     def get(self, request, slug):
-        ensure_database_seeded()
-        product = Product.objects.filter(slug__iexact=slug).first()
-        if not product:
-            return Response({'error': 'Product not found'}, status=404)
-        serializer = ProductSerializer(product)
-        return Response(serializer.data)
+        from django.db import connection
+        for attempt in range(2):
+            try:
+                try:
+                    ensure_database_seeded()
+                except Exception:
+                    pass
+
+                product = Product.objects.select_related('category', 'brand').prefetch_related('images', 'specifications').filter(slug__iexact=slug).first()
+                if not product and slug.isdigit():
+                    product = Product.objects.select_related('category', 'brand').prefetch_related('images', 'specifications').filter(id=int(slug)).first()
+
+                if not product:
+                    return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
+
+                serializer = ProductSerializer(product)
+                return Response(serializer.data)
+            except Exception as e:
+                print(f"ProductDetailView Attempt {attempt+1} Error: {e}")
+                connection.close()
+                if attempt == 1:
+                    return Response({'error': 'Failed to retrieve product details'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 class ProductImageView(APIView):
     def get(self, request, product_id):
-        product = Product.objects.filter(id=product_id).first()
-        if not product:
-            return Response({'error': 'Product not found'}, status=404)
-        return Response({'image_url': product.thumbnail})
+        from django.db import connection
+        for attempt in range(2):
+            try:
+                product = Product.objects.filter(id=product_id).first()
+                if not product:
+                    return Response({'error': 'Product not found'}, status=404)
+                serializer = ProductSerializer(product)
+                return Response({'image_url': serializer.data.get('thumbnail')})
+            except Exception as e:
+                print(f"ProductImageView Attempt {attempt+1} Error: {e}")
+                connection.close()
+                if attempt == 1:
+                    return Response({'error': 'Failed to retrieve image'}, status=500)
+
+
 
 class ProductFeaturedView(APIView):
     def get(self, request):

@@ -29,9 +29,10 @@ class SpecificationSerializer(serializers.ModelSerializer):
 class ProductSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
     brand = BrandSerializer(read_only=True)
-    images = ProductImageSerializer(many=True, read_only=True)
+    images = serializers.SerializerMethodField()
     specifications = SpecificationSerializer(many=True, read_only=True)
     price = serializers.SerializerMethodField()
+    thumbnail = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -44,6 +45,27 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def get_price(self, obj):
         return f"{obj.price:.2f}"
+
+    def get_thumbnail(self, obj):
+        from .utils import get_product_image_url
+        url = str(obj.thumbnail or "").strip()
+        # If empty, placeholder, or generic desk image, replace with accurate keyword/product image
+        if not url or "photo-1526738549149" in url or "placeholder" in url:
+            return get_product_image_url(obj.name)
+        return url
+
+    def get_images(self, obj):
+        thumbnail_url = self.get_thumbnail(obj)
+        existing_imgs = list(obj.images.all())
+        valid_imgs = []
+        for img in existing_imgs:
+            img_url = str(img.image or "").strip()
+            if img_url and "photo-1526738549149" not in img_url and "placeholder" not in img_url:
+                valid_imgs.append({"id": img.id, "image": img_url, "is_primary": img.is_primary})
+        
+        if valid_imgs:
+            return valid_imgs
+        return [{"id": 1, "image": thumbnail_url, "is_primary": True}]
 
 class AddressSerializer(serializers.ModelSerializer):
     class Meta:
@@ -64,11 +86,15 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
     def get_product(self, obj):
         if obj.product:
+            from .utils import get_product_image_url
+            thumb = str(obj.product.thumbnail or "").strip()
+            if not thumb or "photo-1526738549149" in thumb or "placeholder" in thumb:
+                thumb = get_product_image_url(obj.product.name)
             return {
                 "id": obj.product.id,
                 "name": obj.product.name,
                 "price": f"{obj.product.price:.2f}",
-                "thumbnail": obj.product.thumbnail,
+                "thumbnail": thumb,
             }
         return {"id": 0, "name": obj.product_name, "price": f"{obj.unit_price:.2f}", "thumbnail": ""}
 
