@@ -358,7 +358,10 @@ def send_owner_email_invoice_async(order):
             pdf_buffer = generate_invoice_pdf_buffer(order)
             pdf_data   = pdf_buffer.getvalue()
 
-            service = _build_gmail_api_service()
+            # Check sending method: SMTP (from .env) or Gmail API (token.json)
+            service = None
+            if not (smtp_user and smtp_pass):
+                service = _build_gmail_api_service()
 
             for target_email, is_owner in recipients:
                 msg = MIMEMultipart()
@@ -394,13 +397,8 @@ def send_owner_email_invoice_async(order):
                 part.add_header('Content-Disposition', 'attachment', filename=f"invoice-{order.order_number}.pdf")
                 msg.attach(part)
 
-                # 1. Primary: Gmail API
-                if service:
-                    raw_message = base64.urlsafe_b64encode(msg.as_bytes()).decode('utf-8')
-                    service.users().messages().send(userId='me', body={'raw': raw_message}).execute()
-                    print(f"[Email] SUCCESS via Gmail API -> Sent invoice to {target_email}")
-                # 2. Fallback: SMTP
-                elif smtp_user and smtp_pass:
+                # 1. Primary: Direct SMTP via .env credentials
+                if smtp_user and smtp_pass:
                     with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
                         server.ehlo()
                         server.starttls()
@@ -408,10 +406,18 @@ def send_owner_email_invoice_async(order):
                         server.login(smtp_user, smtp_pass)
                         server.send_message(msg)
                     print(f"[Email] SUCCESS via SMTP -> Sent invoice to {target_email}")
+
+                # 2. Fallback: Gmail API OAuth2 if token.json exists
+                elif service:
+                    raw_message = base64.urlsafe_b64encode(msg.as_bytes()).decode('utf-8')
+                    service.users().messages().send(userId='me', body={'raw': raw_message}).execute()
+                    print(f"[Email] SUCCESS via Gmail API -> Sent invoice to {target_email}")
+
                 else:
-                    print(f"[Email] SKIPPED for {target_email} - SMTP/Gmail credentials missing.")
+                    print(f"[Email] SKIPPED for {target_email} - missing SMTP credentials in .env")
 
             Order.objects.filter(id=order.id).update(email_sent=True)
+
 
         except smtplib.SMTPAuthenticationError as e:
             print(f"[Email] SMTP AUTH FAILED: {e}")
