@@ -47,25 +47,38 @@ class ProductSerializer(serializers.ModelSerializer):
         return f"{obj.price:.2f}"
 
     def get_thumbnail(self, obj):
+        import re
         from .utils import get_product_image_url
         url = str(obj.thumbnail or "").strip()
-        # If empty, placeholder, or generic desk image, replace with accurate keyword/product image
         if not url or "photo-1526738549149" in url or "placeholder" in url:
             return get_product_image_url(obj.name)
+
+        if "127.0.0.1:8000" in url or "localhost:8000" in url:
+            rel_path = re.sub(r'^https?://[^/]+', '', url)
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(rel_path)
+            return rel_path
         return url
 
     def get_images(self, obj):
+        import re
         thumbnail_url = self.get_thumbnail(obj)
         existing_imgs = list(obj.images.all())
         valid_imgs = []
+        request = self.context.get('request')
         for img in existing_imgs:
             img_url = str(img.image or "").strip()
             if img_url and "photo-1526738549149" not in img_url and "placeholder" not in img_url:
+                if "127.0.0.1:8000" in img_url or "localhost:8000" in img_url:
+                    rel_path = re.sub(r'^https?://[^/]+', '', img_url)
+                    img_url = request.build_absolute_uri(rel_path) if request else rel_path
                 valid_imgs.append({"id": img.id, "image": img_url, "is_primary": img.is_primary})
         
         if valid_imgs:
             return valid_imgs
         return [{"id": 1, "image": thumbnail_url, "is_primary": True}]
+
 
 class AddressSerializer(serializers.ModelSerializer):
     class Meta:

@@ -36,21 +36,27 @@ export const formatImageUrl = (url?: string): string => {
     return 'https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=600&auto=format&fit=crop&q=80';
   }
   
-  const cleanUrl = url.trim();
+  let cleanUrl = url.trim();
+  const backendBase = CONFIG.API_BASE_URL.replace(/\/api\/?$/, '');
+
+  // Convert local dev origin (127.0.0.1:8000 or localhost:8000) when deployed on production
+  if (cleanUrl.includes('127.0.0.1:8000') || cleanUrl.includes('localhost:8000')) {
+    const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    if (isLocalhost) {
+      cleanUrl = cleanUrl.replace('127.0.0.1:8000', 'localhost:8000');
+    } else {
+      cleanUrl = cleanUrl.replace(/^https?:\/\/(127\.0\.0\.1|localhost):8000/, backendBase);
+    }
+  }
 
   // If relative media URL, prepend backend base URL
   if (cleanUrl.startsWith('/media/') || cleanUrl.startsWith('media/')) {
-    const backendBase = CONFIG.API_BASE_URL.replace(/\/api\/?$/, '');
     return `${backendBase}/${cleanUrl.replace(/^\//, '')}`;
-  }
-
-  // Handle 127.0.0.1 vs localhost domain conversion
-  if (cleanUrl.includes('127.0.0.1:8000') && typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-    return cleanUrl.replace('127.0.0.1:8000', 'localhost:8000');
   }
 
   return cleanUrl;
 };
+
 
 /** Get primary image URL from product images array */
 export const getProductImage = (images?: { image: string; is_primary: boolean }[], thumbnail?: string): string => {
