@@ -49,7 +49,7 @@ const AdminLayout: React.FC = () => {
             <div className="h-4 w-[1px] bg-slate-700" />
             <div className="flex items-center gap-3">
               <div className="text-right hidden sm:block">
-                <p className="text-xs font-bold text-white">{user.full_name || user.username}</p>
+                <p className="text-xs font-bold text-white">{user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email}</p>
                 <p className="text-[10px] text-slate-400">{user.email}</p>
               </div>
               <button

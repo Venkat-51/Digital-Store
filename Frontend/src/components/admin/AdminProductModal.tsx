@@ -4,6 +4,7 @@ import { Input, Textarea, Select } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import type { Product } from '@/types/product.types';
 import { useCreateProduct, useUpdateProduct } from '@/hooks/useAdmin';
+import type { ProductPayload } from '@/services/admin.service';
 import toast from 'react-hot-toast';
 
 interface AdminProductModalProps {
@@ -63,9 +64,9 @@ export const AdminProductModal: React.FC<AdminProductModalProps> = ({
       return;
     }
 
-    const payload = {
+    const payload: ProductPayload = {
       name,
-      price: parseFloat(price),
+      price: price,
       stock: parseInt(stock, 10) || 0,
       description,
       image_url: imageUrl,

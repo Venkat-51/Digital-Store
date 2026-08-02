@@ -36,6 +36,21 @@ export interface AdminCustomer {
   };
 }
 
+export interface ProductPayload {
+  name?: string;
+  price?: string;
+  stock?: number;
+  description?: string;
+  category_id?: number;
+  image_url?: string;
+  thumbnail?: string;
+  is_in_stock?: boolean;
+  is_featured?: boolean;
+  is_new?: boolean;
+  is_sale?: boolean;
+  sku?: string;
+}
+
 export const adminService = {
   // Orders
   getOrders: async (params?: { status?: string; search?: string }): Promise<Order[]> => {
@@ -55,12 +70,12 @@ export const adminService = {
   },
 
   // Products CRUD
-  createProduct: async (data: Partial<Product> & { category_id?: number; image_url?: string }): Promise<Product> => {
+  createProduct: async (data: ProductPayload): Promise<Product> => {
     const res = await api.post('/products/', data);
     return res.data;
   },
 
-  updateProduct: async (idOrSlug: string | number, data: Partial<Product> & { category_id?: number; image_url?: string }): Promise<Product> => {
+  updateProduct: async (idOrSlug: string | number, data: ProductPayload): Promise<Product> => {
     const res = await api.patch(`/products/${idOrSlug}/`, data);
     return res.data;
   },
