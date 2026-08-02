@@ -58,7 +58,7 @@ class ProductSerializer(serializers.ModelSerializer):
             request = self.context.get('request')
             if request:
                 return request.build_absolute_uri(rel_path)
-            return rel_path
+            return f"http://127.0.0.1:8000{rel_path}"
         return url
 
     def get_images(self, obj):
@@ -72,12 +72,13 @@ class ProductSerializer(serializers.ModelSerializer):
             if img_url and "photo-1526738549149" not in img_url and "placeholder" not in img_url:
                 if "127.0.0.1:8000" in img_url or "localhost:8000" in img_url:
                     rel_path = re.sub(r'^https?://[^/]+', '', img_url)
-                    img_url = request.build_absolute_uri(rel_path) if request else rel_path
+                    img_url = request.build_absolute_uri(rel_path) if request else f"http://127.0.0.1:8000{rel_path}"
                 valid_imgs.append({"id": img.id, "image": img_url, "is_primary": img.is_primary})
         
         if valid_imgs:
             return valid_imgs
         return [{"id": 1, "image": thumbnail_url, "is_primary": True}]
+
 
 
 class AddressSerializer(serializers.ModelSerializer):

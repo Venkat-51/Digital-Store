@@ -108,10 +108,11 @@ const ShopPage: React.FC = () => {
       const catLower = category.toLowerCase();
       list = list.filter(
         (p) =>
-          p.category?.slug.toLowerCase() === catLower ||
-          p.category?.name.toLowerCase() === catLower
+          (p.category?.slug && p.category.slug.toLowerCase() === catLower) ||
+          (p.category?.name && p.category.name.toLowerCase() === catLower)
       );
     }
+
 
     return list;
   }, [rawProducts, minPrice, maxPrice, inStock, category]);

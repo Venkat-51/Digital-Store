@@ -6,6 +6,7 @@ import { PageLoader } from '@/components/ui/Loader';
 import RootLayout from '@/layouts/RootLayout';
 import AuthLayout from '@/layouts/AuthLayout';
 import CustomerLayout from '@/layouts/CustomerLayout';
+import AdminLayout from '@/layouts/AdminLayout';
 
 // Automatic Retry Wrapper for Dynamic Imports (Handles Vercel chunk hash updates gracefully)
 const lazyRetry = <T extends React.ComponentType<any>>(
@@ -30,10 +31,13 @@ const lazyRetry = <T extends React.ComponentType<any>>(
 // Error Boundary for React Router
 const RootErrorBoundary: React.FC = () => {
   const error: any = useRouteError();
+  console.error("RootErrorBoundary caught error:", error);
+
   const isChunkError =
-    error?.name === 'TypeError' ||
-    error?.message?.includes('Failed to fetch dynamically imported module') ||
-    error?.message?.includes('Importing a module script failed');
+    error?.name === 'TypeError' &&
+    (error?.message?.includes('Failed to fetch dynamically imported module') ||
+     error?.message?.includes('Importing a module script failed'));
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6 font-sans">
@@ -85,11 +89,15 @@ const TermsPage         = lazyRetry(() => import('@/pages/public/TermsPage'));
 const LoginPage          = lazyRetry(() => import('@/pages/auth/LoginPage'));
 const RegisterPage       = lazyRetry(() => import('@/pages/auth/RegisterPage'));
 const ForgotPasswordPage = lazyRetry(() => import('@/pages/auth/ForgotPasswordPage'));
+const AdminLoginPage    = lazyRetry(() => import('@/pages/auth/AdminLoginPage'));
 
 // Customer
 const ProfilePage        = lazyRetry(() => import('@/pages/customer/ProfilePage'));
 const OrdersPage         = lazyRetry(() => import('@/pages/customer/OrdersPage'));
 const SavedAddressesPage = lazyRetry(() => import('@/pages/customer/SavedAddressesPage'));
+
+// Admin
+const AdminDashboardPage = lazyRetry(() => import('@/pages/admin/AdminDashboardPage'));
 
 const Wrap: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <Suspense fallback={<PageLoader />}>{children}</Suspense>
@@ -134,6 +142,20 @@ const router = createBrowserRouter([
         ],
       },
     ],
+  },
+  {
+    path: '/admin',
+    element: <AdminLayout />,
+    errorElement: <RootErrorBoundary />,
+    children: [
+      { index: true, element: <Wrap><AdminDashboardPage /></Wrap> },
+      { path: 'dashboard', element: <Wrap><AdminDashboardPage /></Wrap> },
+    ],
+  },
+  {
+    path: '/admin/login',
+    element: <Wrap><AdminLoginPage /></Wrap>,
+    errorElement: <RootErrorBoundary />,
   },
   {
     path: '/',

@@ -4,8 +4,9 @@
 
 export const CONFIG = {
   APP_NAME: import.meta.env.VITE_APP_NAME || 'Lexicon Technology',
-  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'https://api-digital-store-bmas.onrender.com/api',
+  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? 'http://127.0.0.1:8000/api' : 'https://api-digital-store-bmas.onrender.com/api'),
   GOOGLE_CLIENT_ID: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
+
   APP_URL: import.meta.env.VITE_APP_URL || "http://localhost:5173",  CURRENCY: 'SGD',
   CURRENCY_SYMBOL: '$',
   PRODUCTS_PER_PAGE: 12,

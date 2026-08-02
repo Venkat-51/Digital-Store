@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Heart, ShoppingCart, Eye, Star } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { cn } from '@/utils/helpers';
-import { getProductImage, formatPrice, calcDiscount } from '@/utils/formatters';
+import { getProductImage, formatPrice, calcDiscount, formatImageUrl } from '@/utils/formatters';
 import { useCart } from '@/hooks/useCart';
 import { useWishlist } from '@/hooks/useWishlist';
 import type { Product } from '@/types/product.types';
@@ -29,8 +29,9 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickView, classNa
   const initialImage = getProductImage(product.images, product.thumbnail);
   const { data: imageData } = useProductImage(product.id);
   const image = (imageData?.image_url && imageData.image_url !== '/placeholder-product.png')
-    ? imageData.image_url
+    ? formatImageUrl(imageData.image_url)
     : initialImage;
+
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();

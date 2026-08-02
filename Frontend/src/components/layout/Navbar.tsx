@@ -206,16 +206,26 @@ const Navbar: React.FC = () => {
                             My Orders
                           </Link>
                           {user?.is_staff && (
-                            <button
-                              onClick={() => {
-                                setIsProfileOpen(false);
-                                setIsBulkUploadModalOpen(true);
-                              }}
-                              className="w-full flex items-center gap-3 px-4 py-2 text-sm text-primary-700 hover:bg-primary-50 transition-colors font-semibold text-left cursor-pointer"
-                            >
-                              <Upload size={16} className="text-primary-600" />
-                              Bulk Import CSV
-                            </button>
+                            <>
+                              <Link
+                                to="/admin"
+                                onClick={() => setIsProfileOpen(false)}
+                                className="flex items-center gap-3 px-4 py-2 text-sm text-primary-700 bg-primary-50/50 hover:bg-primary-50 transition-colors font-bold"
+                              >
+                                <LayoutDashboard size={16} className="text-primary-600" />
+                                Admin Dashboard
+                              </Link>
+                              <button
+                                onClick={() => {
+                                  setIsProfileOpen(false);
+                                  setIsBulkUploadModalOpen(true);
+                                }}
+                                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors font-semibold text-left cursor-pointer"
+                              >
+                                <Upload size={16} className="text-gray-400" />
+                                Bulk Import CSV
+                              </button>
+                            </>
                           )}
                         </div>
 

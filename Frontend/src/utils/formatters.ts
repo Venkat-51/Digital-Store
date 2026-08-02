@@ -31,31 +31,35 @@ export const formatDateTime = (dateString: string): string => {
 };
 
 /** Format image URL ensuring proper base URL for media files */
-export const formatImageUrl = (url?: string): string => {
-  if (!url || url.trim() === '' || url === '/placeholder-product.png') {
+export const formatImageUrl = (url?: any): string => {
+  if (!url) {
     return 'https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=600&auto=format&fit=crop&q=80';
   }
-  
-  let cleanUrl = url.trim();
-  const backendBase = CONFIG.API_BASE_URL.replace(/\/api\/?$/, '');
 
-  // Convert local dev origin (127.0.0.1:8000 or localhost:8000) when deployed on production
-  if (cleanUrl.includes('127.0.0.1:8000') || cleanUrl.includes('localhost:8000')) {
-    const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-    if (isLocalhost) {
-      cleanUrl = cleanUrl.replace('127.0.0.1:8000', 'localhost:8000');
-    } else {
-      cleanUrl = cleanUrl.replace(/^https?:\/\/(127\.0\.0\.1|localhost):8000/, backendBase);
-    }
+  // Handle case where an object or non-string was passed
+  let strUrl = typeof url === 'string' ? url : (url.image || url.url || String(url));
+  if (typeof strUrl !== 'string' || !strUrl || strUrl.trim() === '' || strUrl === '/placeholder-product.png') {
+    return 'https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=600&auto=format&fit=crop&q=80';
   }
 
-  // If relative media URL, prepend backend base URL
+  let cleanUrl = strUrl.trim();
+  const backendBase = (CONFIG.API_BASE_URL || 'http://127.0.0.1:8000/api').replace(/\/api\/?$/, '');
+
+  // If relative media path (/media/products/... or media/products/...)
   if (cleanUrl.startsWith('/media/') || cleanUrl.startsWith('media/')) {
     return `${backendBase}/${cleanUrl.replace(/^\//, '')}`;
   }
 
+  // Handle local dev origins (127.0.0.1:8000 / localhost:8000)
+  if (cleanUrl.includes('127.0.0.1:8000') || cleanUrl.includes('localhost:8000')) {
+    const relativeMedia = cleanUrl.replace(/^https?:\/\/[^\/]+/, '');
+    return `${backendBase}${relativeMedia}`;
+  }
+
   return cleanUrl;
 };
+
+
 
 
 /** Get primary image URL from product images array */

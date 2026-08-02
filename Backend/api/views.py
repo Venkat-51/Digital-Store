@@ -495,16 +495,25 @@ def trigger_automatic_order_invoice_sends(order):
         send_owner_email_invoice_async(order)
         send_owner_whatsapp_invoice_async(order)
 
+_DATABASE_SEEDED_CHECKED = False
+
 def ensure_database_seeded():
-    """Auto-seed Neon database if empty."""
+    """Auto-seed database if empty (runs once per process)."""
+    global _DATABASE_SEEDED_CHECKED
+    if _DATABASE_SEEDED_CHECKED:
+        return
+
     try:
-        from django.db import connection
-        tables = connection.introspection.table_names()
-        if 'api_category' in tables and 'api_product' in tables:
-            if Category.objects.count() == 0 or Product.objects.count() == 0:
-                call_command('seed_data')
+        if Category.objects.count() == 0 or Product.objects.count() == 0:
+            call_command('seed_data')
+        _DATABASE_SEEDED_CHECKED = True
     except Exception as e:
-        print(f"Auto-seed exception: {e}")
+        try:
+            from django.db import connection
+            connection.close()
+        except Exception:
+            pass
+
 
 class CategoryListView(APIView):
     def get(self, request):
@@ -591,7 +600,7 @@ class ProductListView(APIView):
                 else:
                     paginated_qs = queryset
 
-                serializer = ProductSerializer(paginated_qs, many=True)
+                serializer = ProductSerializer(paginated_qs, many=True, context={'request': request})
 
                 return Response({
                     "count": total_count,
@@ -611,6 +620,64 @@ class ProductListView(APIView):
                         "results": []
                     })
 
+    def post(self, request):
+        user = get_authenticated_user(request)
+        if not is_admin_user(user):
+            return Response({"error": "Forbidden: Only admin users can create products."}, status=status.HTTP_403_FORBIDDEN)
+        
+        data = request.data
+        name = data.get('name')
+        price = data.get('price')
+        if not name or price is None:
+            return Response({"error": "Name and price are required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        category_id = data.get('category_id') or data.get('category')
+        category_obj = None
+        if category_id:
+            if isinstance(category_id, int) or str(category_id).isdigit():
+                category_obj = Category.objects.filter(id=int(category_id)).first()
+            elif isinstance(category_id, str):
+                category_obj = Category.objects.filter(slug=category_id).first() or Category.objects.filter(name__iexact=category_id).first()
+
+        brand_id = data.get('brand_id') or data.get('brand')
+        brand_obj = None
+        if brand_id:
+            if isinstance(brand_id, int) or str(brand_id).isdigit():
+                brand_obj = Brand.objects.filter(id=int(brand_id)).first()
+
+        base_slug = slugify(name) or f"product-{int(time.time()*1000)}"
+        slug = base_slug
+        counter = 1
+        while Product.objects.filter(slug=slug).exists():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+
+        sku = data.get('sku') or f"SKU-{slug[:10].upper()}-{int(time.time()*100)%10000}"
+        stock = int(data.get('stock', 10))
+
+        product = Product.objects.create(
+            name=name,
+            slug=slug,
+            sku=sku,
+            description=data.get('description', ''),
+            category=category_obj,
+            brand=brand_obj,
+            price=float(price),
+            stock=stock,
+            is_in_stock=stock > 0,
+            is_featured=bool(data.get('is_featured', False)),
+            is_new=bool(data.get('is_new', True)),
+            is_sale=bool(data.get('is_sale', False)),
+            thumbnail=data.get('thumbnail', '') or data.get('image_url', '')
+        )
+
+        image_url = data.get('image_url') or data.get('thumbnail')
+        if image_url:
+            ProductImage.objects.create(product=product, image=image_url, is_primary=True)
+
+        serializer = ProductSerializer(product, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
 
 class ProductDetailView(APIView):
     def get(self, request, slug):
@@ -629,13 +696,82 @@ class ProductDetailView(APIView):
                 if not product:
                     return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
 
-                serializer = ProductSerializer(product)
+                serializer = ProductSerializer(product, context={'request': request})
                 return Response(serializer.data)
             except Exception as e:
                 print(f"ProductDetailView Attempt {attempt+1} Error: {e}")
                 connection.close()
                 if attempt == 1:
                     return Response({'error': 'Failed to retrieve product details'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def put(self, request, slug):
+        return self.patch(request, slug)
+
+    def patch(self, request, slug):
+        user = get_authenticated_user(request)
+        if not is_admin_user(user):
+            return Response({"error": "Forbidden: Only admin users can edit products."}, status=status.HTTP_403_FORBIDDEN)
+        
+        product = Product.objects.filter(slug__iexact=slug).first()
+        if not product and slug.isdigit():
+            product = Product.objects.filter(id=int(slug)).first()
+        if not product:
+            return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        data = request.data
+        if 'name' in data:
+            product.name = data['name']
+        if 'price' in data:
+            product.price = float(data['price'])
+        if 'stock' in data:
+            product.stock = int(data['stock'])
+            product.is_in_stock = product.stock > 0
+        if 'is_in_stock' in data:
+            product.is_in_stock = bool(data['is_in_stock'])
+        if 'description' in data:
+            product.description = data['description']
+        if 'is_featured' in data:
+            product.is_featured = bool(data['is_featured'])
+        if 'is_new' in data:
+            product.is_new = bool(data['is_new'])
+        if 'is_sale' in data:
+            product.is_sale = bool(data['is_sale'])
+        if 'thumbnail' in data or 'image_url' in data:
+            img = data.get('image_url') or data.get('thumbnail')
+            if img:
+                product.thumbnail = img
+                primary_img = ProductImage.objects.filter(product=product, is_primary=True).first()
+                if primary_img:
+                    primary_img.image = img
+                    primary_img.save()
+                else:
+                    ProductImage.objects.create(product=product, image=img, is_primary=True)
+
+        if 'category_id' in data or 'category' in data:
+            cat_val = data.get('category_id') or data.get('category')
+            if cat_val:
+                if isinstance(cat_val, int) or str(cat_val).isdigit():
+                    product.category = Category.objects.filter(id=int(cat_val)).first()
+                else:
+                    product.category = Category.objects.filter(slug=cat_val).first() or Category.objects.filter(name__iexact=str(cat_val)).first()
+
+        product.save()
+        serializer = ProductSerializer(product, context={'request': request})
+        return Response(serializer.data)
+
+    def delete(self, request, slug):
+        user = get_authenticated_user(request)
+        if not is_admin_user(user):
+            return Response({"error": "Forbidden: Only admin users can delete products."}, status=status.HTTP_403_FORBIDDEN)
+
+        product = Product.objects.filter(slug__iexact=slug).first()
+        if not product and slug.isdigit():
+            product = Product.objects.filter(id=int(slug)).first()
+        if not product:
+            return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        product.delete()
+        return Response({'message': 'Product deleted successfully'}, status=status.HTTP_200_OK)
 
 
 class ProductImageView(APIView):
@@ -646,7 +782,7 @@ class ProductImageView(APIView):
                 product = Product.objects.filter(id=product_id).first()
                 if not product:
                     return Response({'error': 'Product not found'}, status=404)
-                serializer = ProductSerializer(product)
+                serializer = ProductSerializer(product, context={'request': request})
                 return Response({'image_url': serializer.data.get('thumbnail')})
             except Exception as e:
                 print(f"ProductImageView Attempt {attempt+1} Error: {e}")
@@ -667,7 +803,9 @@ class ProductFeaturedView(APIView):
             featured = Product.objects.filter(is_featured=True)[:4]
             if not featured.exists():
                 featured = Product.objects.all()[:4]
-            serializer = ProductSerializer(featured, many=True)
+            serializer = ProductSerializer(featured, many=True, context={'request': request})
+            return Response(serializer.data)
+
             return Response(serializer.data)
         except Exception as e:
             print(f"ProductFeaturedView Error: {e}")
@@ -1528,4 +1666,135 @@ class ProductBulkUploadView(APIView):
             "total_rows": total_rows,
             "errors": errors
         }, status=status.HTTP_200_OK)
+
+
+class AdminOrderListView(APIView):
+    def get(self, request):
+        user = get_authenticated_user(request)
+        if not is_admin_user(user):
+            return Response({"error": "Forbidden: Only admin users can view all orders."}, status=status.HTTP_403_FORBIDDEN)
+        
+        queryset = Order.objects.select_related('user').prefetch_related('items__product').all().order_by('-created_at')
+        
+        status_param = request.query_params.get('status')
+        if status_param and status_param != 'all':
+            queryset = queryset.filter(status__iexact=status_param)
+            
+        search_param = request.query_params.get('search') or request.query_params.get('q')
+        if search_param:
+            sp = search_param.strip()
+            queryset = queryset.filter(
+                Q(order_number__icontains=sp) |
+                Q(customer_name__icontains=sp) |
+                Q(customer_email__icontains=sp) |
+                Q(customer_phone__icontains=sp) |
+                Q(user__email__icontains=sp) |
+                Q(user__first_name__icontains=sp) |
+                Q(user__last_name__icontains=sp)
+            ).distinct()
+
+        serializer = OrderSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+
+class AdminOrderUpdateStatusView(APIView):
+    def patch(self, request, pk):
+        user = get_authenticated_user(request)
+        if not is_admin_user(user):
+            return Response({"error": "Forbidden: Only admin users can update order status."}, status=status.HTTP_403_FORBIDDEN)
+        
+        order = Order.objects.filter(id=pk).first()
+        if not order:
+            order = Order.objects.filter(order_number=str(pk)).first()
+        if not order:
+            return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        new_status = request.data.get('status')
+        valid_statuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled']
+        if not new_status or str(new_status).lower() not in valid_statuses:
+            return Response({'error': f'Invalid status. Must be one of: {", ".join(valid_statuses)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        order.status = str(new_status).lower()
+        order.save()
+        serializer = OrderSerializer(order)
+        return Response(serializer.data)
+
+
+class AdminCustomerListView(APIView):
+    def get(self, request):
+        user = get_authenticated_user(request)
+        if not is_admin_user(user):
+            return Response({"error": "Forbidden: Only admin users can view customer details."}, status=status.HTTP_403_FORBIDDEN)
+        
+        users = User.objects.all().order_by('-date_joined')
+        customers_data = []
+
+        for u in users:
+            sync_user_phone(u)
+            profile = getattr(u, 'profile', None)
+            phone = profile.phone if profile else ""
+            if not phone:
+                first_addr = Address.objects.filter(user=u).first()
+                if first_addr:
+                    phone = first_addr.phone
+
+            addresses = AddressSerializer(Address.objects.filter(user=u), many=True).data
+            
+            # Cart items
+            cart_items = CartItem.objects.filter(user=u).select_related('product')
+            cart_data = []
+            cart_total = 0.0
+            for ci in cart_items:
+                item_total = float(ci.product.price) * ci.quantity
+                cart_total += item_total
+                cart_data.append({
+                    "id": ci.id,
+                    "product_id": ci.product.id,
+                    "product_name": ci.product.name,
+                    "quantity": ci.quantity,
+                    "unit_price": f"{ci.product.price:.2f}",
+                    "total_price": f"{item_total:.2f}"
+                })
+
+            # Wishlist items
+            wishlist_items = WishlistItem.objects.filter(user=u).select_related('product')
+            wishlist_data = []
+            for wi in wishlist_items:
+                wishlist_data.append({
+                    "id": wi.id,
+                    "product_id": wi.product.id,
+                    "product_name": wi.product.name,
+                    "price": f"{wi.product.price:.2f}",
+                    "slug": wi.product.slug
+                })
+
+            # Orders summary
+            user_orders = Order.objects.filter(user=u).order_by('-created_at')
+            order_count = user_orders.count()
+            total_spent = sum(float(o.total) for o in user_orders if o.status != 'cancelled')
+            order_list = OrderSerializer(user_orders[:5], many=True).data
+
+            customers_data.append({
+                "id": u.id,
+                "username": u.username,
+                "email": u.email,
+                "full_name": f"{u.first_name} {u.last_name}".strip() or u.username,
+                "phone": phone,
+                "is_staff": is_admin_user(u),
+                "date_joined": u.date_joined.isoformat(),
+                "addresses": addresses,
+                "cart": {
+                    "items": cart_data,
+                    "total_value": f"{cart_total:.2f}"
+                },
+                "wishlist": wishlist_data,
+                "order_summary": {
+                    "total_orders": order_count,
+                    "total_spent": f"{total_spent:.2f}",
+                    "recent_orders": order_list
+                }
+            })
+
+        return Response(customers_data)
+
 

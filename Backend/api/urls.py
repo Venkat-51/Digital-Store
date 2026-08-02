@@ -5,7 +5,8 @@ from .views import (
     AuthMeView, AuthLogoutView, AuthPasswordResetView, AuthPasswordResetConfirmView,
     AuthTokenRefreshView, AuthGoogleView, OrderCreateView, OrderDetailView, OrderCancelView, OrderInvoiceView,
     AddressListView, AddressDetailView, AddressSetDefaultView, WishlistView, CartView,
-    ProductCSVTemplateView, ProductBulkUploadView
+    ProductCSVTemplateView, ProductBulkUploadView,
+    AdminOrderListView, AdminOrderUpdateStatusView, AdminCustomerListView
 )
 
 urlpatterns = [
@@ -40,6 +41,10 @@ urlpatterns = [
     path('cart/', CartView.as_view(), name='cart-list'),
     path('cart/clear/', CartView.as_view(), name='cart-clear'),
     path('cart/<int:item_id>/', CartView.as_view(), name='cart-detail'),
+    # Admin Endpoints
+    path('admin/orders/', AdminOrderListView.as_view(), name='admin-order-list'),
+    path('admin/orders/<int:pk>/status/', AdminOrderUpdateStatusView.as_view(), name='admin-order-update-status'),
+    path('admin/customers/', AdminCustomerListView.as_view(), name='admin-customer-list'),
 ]
 
 
