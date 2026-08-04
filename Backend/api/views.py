@@ -397,31 +397,39 @@ def send_owner_email_invoice_async(order):
                 part.add_header('Content-Disposition', 'attachment', filename=f"invoice-{order.order_number}.pdf")
                 msg.attach(part)
 
+                # Check sending method: SMTP (from .env) or Gmail API (token.json)
+                sent = False
                 # 1. Primary: Direct SMTP via .env credentials
                 if smtp_user and smtp_pass:
-                    with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
-                        server.ehlo()
-                        server.starttls()
-                        server.ehlo()
-                        server.login(smtp_user, smtp_pass)
-                        server.send_message(msg)
-                    print(f"[Email] SUCCESS via SMTP -> Sent invoice to {target_email}")
+                    try:
+                        with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
+                            server.ehlo()
+                            server.starttls()
+                            server.ehlo()
+                            server.login(smtp_user, smtp_pass)
+                            server.send_message(msg)
+                        sent = True
+                        print(f"[Email] SUCCESS via SMTP -> Sent invoice to {target_email}")
+                    except Exception as smtp_err:
+                        print(f"[Email WARNING] SMTP failed for {target_email}: {smtp_err}. Trying Gmail API fallback...")
 
-                # 2. Fallback: Gmail API OAuth2 if token.json exists
-                elif service:
-                    raw_message = base64.urlsafe_b64encode(msg.as_bytes()).decode('utf-8')
-                    service.users().messages().send(userId='me', body={'raw': raw_message}).execute()
-                    print(f"[Email] SUCCESS via Gmail API -> Sent invoice to {target_email}")
-
-                else:
-                    print(f"[Email] SKIPPED for {target_email} - missing SMTP credentials in .env")
+                # 2. Fallback: Gmail API OAuth2 if token.json exists (or if SMTP failed/missing)
+                if not sent:
+                    if service is None:
+                        service = _build_gmail_api_service()
+                    if service:
+                        try:
+                            raw_message = base64.urlsafe_b64encode(msg.as_bytes()).decode('utf-8')
+                            service.users().messages().send(userId='me', body={'raw': raw_message}).execute()
+                            sent = True
+                            print(f"[Email] SUCCESS via Gmail API -> Sent invoice to {target_email}")
+                        except Exception as g_err:
+                            print(f"[Email ERROR] Gmail API failed for {target_email}: {g_err}")
+                    else:
+                        print(f"[Email] SKIPPED for {target_email} - missing/failed SMTP and no valid Gmail API token.json")
 
             Order.objects.filter(id=order.id).update(email_sent=True)
 
-
-        except smtplib.SMTPAuthenticationError as e:
-            print(f"[Email] SMTP AUTH FAILED: {e}")
-            print(f"[Email] Use a Gmail App Password: https://myaccount.google.com/apppasswords")
         except Exception as e:
             print(f"[Email ERROR] Failed sending invoice for Order #{order.order_number}: {e}")
             traceback.print_exc()
@@ -462,22 +470,31 @@ def send_owner_whatsapp_invoice_async(order):
 
             print(f"[WhatsApp Auto-Notifier] Sending notification for Order #{order.order_number} to +{target_phone}...")
 
+            # CallMeBot phone parameter expects digits with country code WITHOUT leading '+'
+            clean_phone = target_phone.lstrip("+").strip()
+
             callmebot_url = (
                 f"https://api.callmebot.com/whatsapp.php"
-                f"?phone=+{target_phone}"
+                f"?phone={clean_phone}"
                 f"&text={urllib.parse.quote(message)}"
                 f"&apikey={callmebot_apikey}"
             )
             req = urllib.request.Request(callmebot_url, headers={'User-Agent': 'Mozilla/5.0'})
             with urllib.request.urlopen(req, timeout=15) as response:
                 resp_code = response.getcode()
-                resp_body = response.read().decode('utf-8', errors='replace')[:300]
-                print(f"[WhatsApp Auto-Notifier] Response {resp_code}: {resp_body}")
-                # CallMeBot returns 200 on success, 203 also means message queued/sent
-                if resp_code in (200, 203):
+                resp_body = response.read().decode('utf-8', errors='replace')
+                print(f"[WhatsApp Auto-Notifier] Response ({resp_code}): {resp_body[:300]}")
+
+                # CallMeBot returns HTTP 200 even for some error messages in the body (e.g. "apikey invalid" or "Not allowed")
+                body_lower = resp_body.lower()
+                is_failed = any(err_kw in body_lower for err_kw in ["invalid", "not allowed", "error", "apikey is missing", "wrong phone"])
+
+                if resp_code in (200, 203) and not is_failed:
                     Order.objects.filter(id=order.id).update(whatsapp_sent=True)
                     print(f"[WhatsApp Auto-Notifier] SUCCESS (HTTP {resp_code}) — whatsapp_sent=True for Order #{order.order_number}")
                 else:
+                    Order.objects.filter(id=order.id).update(whatsapp_sent=False)
+                    print(f"[WhatsApp Auto-Notifier] FAILED ({resp_code}) — message not delivered: {resp_body[:200]}")
                     print(f"[WhatsApp Auto-Notifier] Non-success response ({resp_code}) — check your CALLMEBOT_APIKEY in .env")
         except Exception as e:
             print(f"[WhatsApp Auto-Notifier] ERROR for Order #{order.order_number}: {e}")
