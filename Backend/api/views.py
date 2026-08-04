@@ -1192,6 +1192,10 @@ class OrderCreateView(APIView):
                 profile.phone = c_phone
                 profile.save()
 
+        # Clear cart items for authenticated user after order completion
+        if user:
+            CartItem.objects.filter(user=user).delete()
+
         # Automatically trigger background email with PDF attachment and WhatsApp sending
         trigger_automatic_order_invoice_sends(order)
 
