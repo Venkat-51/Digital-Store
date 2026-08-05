@@ -437,67 +437,81 @@ def send_owner_email_invoice_async(order):
     t = threading.Thread(target=_send, daemon=True)
     t.start()
 
-def send_owner_whatsapp_invoice_async(order):
+def send_whatsapp_invoice_async(order, recipient_phone=None):
     """
-    Dispatches order invoice notification to owner WhatsApp in background thread.
-    Updates order.whatsapp_sent = True only on confirmed HTTP success.
+    Dispatches order invoice notification via Meta WhatsApp Cloud API in a background thread.
+    Updates order.whatsapp_sent = True on confirmed HTTP success (200/201).
     """
     def _send():
         import traceback
+        import json
         try:
-            target_phone = os.environ.get("OWNER_WHATSAPP", "919500882090")
-            callmebot_apikey = os.environ.get("CALLMEBOT_APIKEY", "").strip()
+            phone_number_id = os.environ.get("WHATSAPP_PHONE_NUMBER_ID", "").strip()
+            token = os.environ.get("WHATSAPP_TOKEN", "").strip()
 
-            # --- Diagnostic: log config so misconfiguration is visible ---
-            print(f"[WA Diag] Order #{order.order_number}: target_phone='{target_phone}' apikey_set={'YES' if callmebot_apikey else 'NO (set CALLMEBOT_APIKEY in .env)'}")
+            target_phone = recipient_phone or order.customer_phone or os.environ.get("OWNER_WHATSAPP", "919500882090")
 
-            if not callmebot_apikey:
-                print(f"[WhatsApp Auto-Notifier] SKIPPED — CALLMEBOT_APIKEY not set in .env. Go to wa.me/34644597352, send 'I allow callmebot to send me messages', get your apikey, then add CALLMEBOT_APIKEY=<your_key> to .env")
+            if not phone_number_id or not token:
+                print(f"[Meta WhatsApp API] SKIPPED — WHATSAPP_PHONE_NUMBER_ID or WHATSAPP_TOKEN not set in .env")
+                return
+
+            # Clean target phone number to digits only
+            clean_phone = "".join(filter(str.isdigit, str(target_phone)))
+            if not clean_phone:
+                print(f"[Meta WhatsApp API] FAILED — Invalid phone number '{target_phone}' for Order #{order.order_number}")
                 return
 
             items_summary = ", ".join([f"{item.product_name} (x{item.quantity})" for item in order.items.all()]) or "Products"
 
-            message = (
-                f"NEW ORDER - LEXICON TECHNOLOGY\n\n"
-                f"Order: #{order.order_number}\n"
+            message_text = (
+                f"🛍️ *LEXICON TECHNOLOGY INVOICE*\n\n"
+                f"Order: *#{order.order_number}*\n"
                 f"Customer: {order.customer_name}\n"
-                f"Phone: {order.customer_phone}\n"
-                f"Email: {order.customer_email}\n"
                 f"Items: {items_summary}\n"
-                f"Total: SGD ${order.total:.2f}\n"
-                f"Status: {order.status.upper()}"
+                f"Total Amount: SGD ${order.total:.2f}\n"
+                f"Status: {order.status.upper()}\n\n"
+                f"Thank you for shopping with Lexicon Store!"
             )
 
-            print(f"[WhatsApp Auto-Notifier] Sending notification for Order #{order.order_number} to +{target_phone}...")
+            url = f"https://graph.facebook.com/v18.0/{phone_number_id}/messages"
+            payload = {
+                "messaging_product": "whatsapp",
+                "recipient_type": "individual",
+                "to": clean_phone,
+                "type": "text",
+                "text": {
+                    "preview_url": False,
+                    "body": message_text
+                }
+            }
 
-            # CallMeBot phone parameter expects digits with country code WITHOUT leading '+'
-            clean_phone = target_phone.lstrip("+").strip()
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json"
+            }
 
-            callmebot_url = (
-                f"https://api.callmebot.com/whatsapp.php"
-                f"?phone={clean_phone}"
-                f"&text={urllib.parse.quote(message)}"
-                f"&apikey={callmebot_apikey}"
-            )
-            req = urllib.request.Request(callmebot_url, headers={'User-Agent': 'Mozilla/5.0'})
+            data = json.dumps(payload).encode('utf-8')
+            req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+
+            print(f"[Meta WhatsApp API] Sending notification for Order #{order.order_number} to {clean_phone}...")
             with urllib.request.urlopen(req, timeout=15) as response:
                 resp_code = response.getcode()
                 resp_body = response.read().decode('utf-8', errors='replace')
-                print(f"[WhatsApp Auto-Notifier] Response ({resp_code}): {resp_body[:300]}")
+                print(f"[Meta WhatsApp API] Response ({resp_code}): {resp_body}")
 
-                # CallMeBot returns HTTP 200 even for some error messages in the body (e.g. "apikey invalid" or "Not allowed")
-                body_lower = resp_body.lower()
-                is_failed = any(err_kw in body_lower for err_kw in ["invalid", "not allowed", "error", "apikey is missing", "wrong phone"])
-
-                if resp_code in (200, 203) and not is_failed:
+                if resp_code in (200, 201):
                     Order.objects.filter(id=order.id).update(whatsapp_sent=True)
-                    print(f"[WhatsApp Auto-Notifier] SUCCESS (HTTP {resp_code}) — whatsapp_sent=True for Order #{order.order_number}")
+                    print(f"[Meta WhatsApp API] SUCCESS (HTTP {resp_code}) — whatsapp_sent=True for Order #{order.order_number}")
                 else:
                     Order.objects.filter(id=order.id).update(whatsapp_sent=False)
-                    print(f"[WhatsApp Auto-Notifier] FAILED ({resp_code}) — message not delivered: {resp_body[:200]}")
-                    print(f"[WhatsApp Auto-Notifier] Non-success response ({resp_code}) — check your CALLMEBOT_APIKEY in .env")
+        except urllib.error.HTTPError as err:
+            err_body = err.read().decode('utf-8', errors='replace')
+            Order.objects.filter(id=order.id).update(whatsapp_sent=False)
+            print(f"[Meta WhatsApp API] HTTP Error {err.code}: {err.reason}")
+            print(f"[Meta WhatsApp API] Response details from Meta: {err_body}")
         except Exception as e:
-            print(f"[WhatsApp Auto-Notifier] ERROR for Order #{order.order_number}: {e}")
+            Order.objects.filter(id=order.id).update(whatsapp_sent=False)
+            print(f"[Meta WhatsApp API] ERROR for Order #{order.order_number}: {e}")
             traceback.print_exc()
 
     t = threading.Thread(target=_send, daemon=True)
@@ -505,12 +519,11 @@ def send_owner_whatsapp_invoice_async(order):
 
 def trigger_automatic_order_invoice_sends(order):
     """
-    Triggers background tasks for both Email (with PDF attachment) and WhatsApp notifications.
-    Runs silently in background without blocking API response or throwing unhandled errors.
+    Triggers background task for Email (with PDF attachment) and WhatsApp notification.
     """
     if str(order.status).lower() == "confirmed":
         send_owner_email_invoice_async(order)
-        send_owner_whatsapp_invoice_async(order)
+        send_whatsapp_invoice_async(order)
 
 _DATABASE_SEEDED_CHECKED = False
 

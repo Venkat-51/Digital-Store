@@ -31,15 +31,16 @@ export const GoogleSignInButton: React.FC = () => {
   };
 
   return (
-    <div className="w-full flex justify-center">
+    <div className="w-full flex justify-center min-h-[44px]">
       <GoogleLogin
         onSuccess={handleSuccess}
         onError={handleError}
         theme="outline"
         shape="rectangular"
         size="large"
-        width="100%"
+        width="320"
         text="continue_with"
+        useOneTap={false}
       />
     </div>
   );
