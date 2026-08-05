@@ -90,25 +90,23 @@ const Navbar: React.FC = () => {
                 alt="Lexicon Technology"
                 className="h-7 sm:h-8 lg:h-9 w-auto object-contain flex-shrink-0"
               />
-              {user && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    if (user.is_staff) {
-                      setIsBulkUploadModalOpen(true);
-                    }
-                  }}
-                  title="Bulk Order"
-                  className="cursor-pointer hover:opacity-90 transition-opacity flex-shrink-0"
-                >
-                  <img
-                    src="/bulk order-1.png"
-                    alt="Bulk Order"
-                    className="h-7 sm:h-9 lg:h-11 w-auto object-contain"
-                  />
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (user?.is_staff) {
+                    setIsBulkUploadModalOpen(true);
+                  }
+                }}
+                title="Bulk Order"
+                className="cursor-pointer hover:opacity-90 transition-opacity flex-shrink-0"
+              >
+                <img
+                  src="/bulk order-1.png"
+                  alt="Bulk Order"
+                  className="h-7 sm:h-9 lg:h-11 w-auto object-contain"
+                />
+              </button>
             </Link>
           </div>
 
