@@ -90,14 +90,16 @@ const Navbar: React.FC = () => {
                 alt="Lexicon Technology"
                 className="h-7 sm:h-8 lg:h-9 w-auto object-contain flex-shrink-0"
               />
-              {user?.is_staff && (
+              {user && (
                 <button
                   type="button"
                   onClick={(e) => {
                     e.preventDefault();
-                    setIsBulkUploadModalOpen(true);
+                    if (user.is_staff) {
+                      setIsBulkUploadModalOpen(true);
+                    }
                   }}
-                  title="Bulk Order Upload (Admin Only)"
+                  title="Bulk Order"
                   className="cursor-pointer hover:opacity-90 transition-opacity flex-shrink-0"
                 >
                   <img
