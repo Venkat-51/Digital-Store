@@ -40,12 +40,28 @@ const Navbar: React.FC = () => {
   const [isSearchCatOpen, setIsSearchCatOpen] = useState(false);
 
   const searchRef = useRef<HTMLInputElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
   const { itemCount, subtotal, openCart, toggleCart, closeCart } = useCart();
   const { count: wishlistCount } = useWishlist();
   const { user, isAuthenticated, logout } = useAuth();
   const { query, setQuery, results, isLoading: isSearchLoading } = useSearch();
+
+  // Close profile dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setIsProfileOpen(false);
+      }
+    };
+    if (isProfileOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isProfileOpen]);
 
   // Sticky scroll
   useEffect(() => {
@@ -163,7 +179,7 @@ const Navbar: React.FC = () => {
             {/* Auth Menu */}
             <div className="flex items-center gap-2 relative">
               {isAuthenticated ? (
-                <div className="relative">
+                <div ref={profileRef} className="relative">
                   <button
                     onClick={() => setIsProfileOpen((p) => !p)}
                     className="flex items-center gap-2 hover:opacity-80 transition-opacity"
