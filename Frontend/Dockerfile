@@ -13,8 +13,16 @@ RUN npm ci
 # Copy the rest of the application
 COPY . .
 
+# Build arguments for Vite env vars
+ARG VITE_API_BASE_URL
+ARG VITE_GOOGLE_CLIENT_ID
+
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
+
 # Build the application for production
 RUN npm run build
+
 
 # Production stage
 FROM nginx:alpine

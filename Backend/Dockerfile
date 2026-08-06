@@ -20,5 +20,6 @@ COPY . /app/
 # Expose port
 EXPOSE 8000
 
-# Run gunicorn WSGI server
-CMD ["sh", "-c", "gunicorn lexicon_backend.wsgi:application --bind 0.0.0.0:${PORT:-8000}"]
+# Run migrations and start gunicorn WSGI server
+CMD ["sh", "-c", "python manage.py migrate --noinput && gunicorn lexicon_backend.wsgi:application --bind 0.0.0.0:${PORT:-8000}"]
+
