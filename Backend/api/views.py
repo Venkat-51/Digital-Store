@@ -278,41 +278,48 @@ def generate_invoice_pdf_buffer(order):
 
 def _build_gmail_api_service():
     """
-    Builds and returns an authenticated Gmail API service object using token.json (OAuth2).
-    token.json is generated once by running: python gmail_setup.py
-    Returns None if token.json does not exist or is invalid.
+    Builds and returns an authenticated Gmail API service object.
+    Supports either GMAIL_TOKEN_JSON env var or token.json file (OAuth2).
     """
     try:
         from google.oauth2.credentials import Credentials
         from google.auth.transport.requests import Request
         from googleapiclient.discovery import build
+        import json
 
-        # Use the directory that contains api/views.py → that is the Backend/ folder
-        # os.path.abspath(__file__) = .../Backend/api/views.py
-        # os.path.dirname(...)      = .../Backend/api/
-        # os.path.dirname(...)      = .../Backend/    ← correct BASE_DIR
-        _this_file = os.path.abspath(__file__)           # .../Backend/api/views.py
-        _api_dir   = os.path.dirname(_this_file)         # .../Backend/api
-        _base_dir  = os.path.dirname(_api_dir)           # .../Backend
-
-        token_path = os.path.join(_base_dir, 'token.json')
-        print(f"[Gmail API] Looking for token.json at: {token_path}")
-
-        if not os.path.exists(token_path):
-            print(f"[Gmail API] token.json NOT FOUND. Run: cd Backend && venv\\Scripts\\python gmail_setup.py")
-            return None
-
+        creds = None
         SCOPES = ['https://www.googleapis.com/auth/gmail.send']
-        creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+
+        # 1. Check GMAIL_TOKEN_JSON environment variable
+        env_token = os.environ.get("GMAIL_TOKEN_JSON")
+        if env_token:
+            try:
+                token_info = json.loads(env_token)
+                creds = Credentials.from_authorized_user_info(token_info, SCOPES)
+                print("[Gmail API] Loaded credentials from GMAIL_TOKEN_JSON environment variable.")
+            except Exception as env_e:
+                print(f"[Gmail API] Error parsing GMAIL_TOKEN_JSON env var: {env_e}")
+
+        # 2. Fallback to token.json file on disk
+        if not creds:
+            _this_file = os.path.abspath(__file__)
+            _api_dir   = os.path.dirname(_this_file)
+            _base_dir  = os.path.dirname(_api_dir)
+            token_path = os.path.join(_base_dir, 'token.json')
+            print(f"[Gmail API] Looking for token.json at: {token_path}")
+
+            if os.path.exists(token_path):
+                creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+            else:
+                print("[Gmail API] token.json NOT FOUND on disk and GMAIL_TOKEN_JSON env var not set.")
+                return None
 
         if not creds.valid:
             if creds.expired and creds.refresh_token:
                 creds.refresh(Request())
-                with open(token_path, 'w') as f:
-                    f.write(creds.to_json())
-                print("[Gmail API] Token refreshed and saved.")
+                print("[Gmail API] Token refreshed successfully.")
             else:
-                print("[Gmail API] Token invalid/expired. Run gmail_setup.py again.")
+                print("[Gmail API] Token invalid/expired.")
                 return None
 
         service = build('gmail', 'v1', credentials=creds)
@@ -358,7 +365,7 @@ def send_owner_email_invoice_async(order):
             pdf_buffer = generate_invoice_pdf_buffer(order)
             pdf_data   = pdf_buffer.getvalue()
 
-            # Check sending method: SMTP (from .env) or Gmail API (token.json)
+            # Check sending method: SMTP (from .env) or Gmail API (token.json/env)
             service = None
             if not (smtp_user and smtp_pass):
                 service = _build_gmail_api_service()
@@ -397,23 +404,39 @@ def send_owner_email_invoice_async(order):
                 part.add_header('Content-Disposition', 'attachment', filename=f"invoice-{order.order_number}.pdf")
                 msg.attach(part)
 
-                # Check sending method: SMTP (from .env) or Gmail API (token.json)
                 sent = False
                 # 1. Primary: Direct SMTP via .env credentials
                 if smtp_user and smtp_pass:
+                    # Attempt 1a: Port specified (default 587 or 465)
                     try:
-                        with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
-                            server.ehlo()
-                            server.starttls()
-                            server.ehlo()
-                            server.login(smtp_user, smtp_pass)
-                            server.send_message(msg)
+                        if smtp_port == 465:
+                            with smtplib.SMTP_SSL(smtp_host, 465, timeout=15) as server:
+                                server.login(smtp_user, smtp_pass)
+                                server.send_message(msg)
+                        else:
+                            with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
+                                server.ehlo()
+                                server.starttls()
+                                server.ehlo()
+                                server.login(smtp_user, smtp_pass)
+                                server.send_message(msg)
                         sent = True
                         print(f"[Email] SUCCESS via SMTP -> Sent invoice to {target_email}")
                     except Exception as smtp_err:
-                        print(f"[Email WARNING] SMTP failed for {target_email}: {smtp_err}. Trying Gmail API fallback...")
+                        print(f"[Email WARNING] SMTP port {smtp_port} failed for {target_email}: {smtp_err}. Trying SSL port 465...")
+                        
+                        # Attempt 1b: Fallback to SSL port 465 if port 587 was blocked by host
+                        if smtp_port != 465:
+                            try:
+                                with smtplib.SMTP_SSL(smtp_host, 465, timeout=15) as server:
+                                    server.login(smtp_user, smtp_pass)
+                                    server.send_message(msg)
+                                sent = True
+                                print(f"[Email] SUCCESS via SMTP SSL (465) -> Sent invoice to {target_email}")
+                            except Exception as ssl_err:
+                                print(f"[Email WARNING] SMTP SSL 465 also failed for {target_email}: {ssl_err}. Trying Gmail API fallback...")
 
-                # 2. Fallback: Gmail API OAuth2 if token.json exists (or if SMTP failed/missing)
+                # 2. Fallback: Gmail API OAuth2 (from GMAIL_TOKEN_JSON env var or token.json file)
                 if not sent:
                     if service is None:
                         service = _build_gmail_api_service()
@@ -426,7 +449,8 @@ def send_owner_email_invoice_async(order):
                         except Exception as g_err:
                             print(f"[Email ERROR] Gmail API failed for {target_email}: {g_err}")
                     else:
-                        print(f"[Email] SKIPPED for {target_email} - missing/failed SMTP and no valid Gmail API token.json")
+                        print(f"[Email] SKIPPED for {target_email} - missing/failed SMTP and no valid Gmail API credentials.")
+
 
             Order.objects.filter(id=order.id).update(email_sent=True)
 
