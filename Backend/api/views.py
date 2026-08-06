@@ -533,6 +533,9 @@ def send_whatsapp_invoice_async(order, recipient_phone=None):
             Order.objects.filter(id=order.id).update(whatsapp_sent=False)
             print(f"[Meta WhatsApp API] HTTP Error {err.code}: {err.reason}")
             print(f"[Meta WhatsApp API] Response details from Meta: {err_body}")
+            if err.code == 401 or "OAuthException" in err_body:
+                print("[Meta WhatsApp API WARNING] WHATSAPP_TOKEN in .env has EXPIRED or is INVALID (Code 190). Please generate a new System User access token in your Meta App Dashboard and update WHATSAPP_TOKEN in .env")
+
         except Exception as e:
             Order.objects.filter(id=order.id).update(whatsapp_sent=False)
             print(f"[Meta WhatsApp API] ERROR for Order #{order.order_number}: {e}")
@@ -1543,9 +1546,10 @@ class CartView(APIView):
         if not user:
             return Response({"error": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
 
-        if item_id == "clear" or request.path.endswith("/clear"):
+        if item_id == "clear" or request.path.rstrip('/').endswith('/clear'):
             CartItem.objects.filter(user=user).delete()
             return Response({"message": "Cart cleared"})
+
 
         target = item_id
         cart_item = CartItem.objects.filter(user=user, id=target).first() if str(target).isdigit() else None
