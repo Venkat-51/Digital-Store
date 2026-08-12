@@ -602,8 +602,11 @@ def send_whatsapp_invoice_async(order, recipient_phone=None):
         import traceback
         import json
         try:
+            # Load Meta WhatsApp Cloud API credentials strictly from environment
             phone_number_id = os.environ.get("WHATSAPP_PHONE_NUMBER_ID", "").strip()
             token = os.environ.get("WHATSAPP_TOKEN", "").strip()
+            business_account_id = os.environ.get("WHATSAPP_BUSINESS_ACCOUNT_ID", os.environ.get("WHATSAPP_ID", "")).strip()
+            api_version = os.environ.get("WHATSAPP_API_VERSION", "v18.0").strip()
 
             target_phone = recipient_phone or order.customer_phone or os.environ.get("OWNER_WHATSAPP", "919500882090")
 
@@ -633,7 +636,8 @@ def send_whatsapp_invoice_async(order, recipient_phone=None):
                 f"Thank you for shopping with Lexicon Store!"
             )
 
-            url = f"https://graph.facebook.com/v18.0/{phone_number_id}/messages"
+            # Meta Graph API endpoint using configured WHATSAPP_API_VERSION and WHATSAPP_PHONE_NUMBER_ID
+            url = f"https://graph.facebook.com/{api_version}/{phone_number_id}/messages"
             payload = {
                 "messaging_product": "whatsapp",
                 "recipient_type": "individual",
@@ -653,33 +657,55 @@ def send_whatsapp_invoice_async(order, recipient_phone=None):
             data = json.dumps(payload).encode('utf-8')
             req = urllib.request.Request(url, data=data, headers=headers, method="POST")
 
-            print(f"[Meta WhatsApp API] Sending notification for Order #{order.order_number} to {clean_phone}...")
+            print(f"[Meta WhatsApp API] Sending notification for Order #{order.order_number} to {clean_phone} via Graph API {api_version}...")
             with urllib.request.urlopen(req, timeout=15) as response:
                 resp_code = response.getcode()
                 resp_body = response.read().decode('utf-8', errors='replace')
-                print(f"[Meta WhatsApp API] Response ({resp_code}): {resp_body}")
 
                 if resp_code in (200, 201):
                     msg = f"SUCCESS (HTTP {resp_code}) — Message delivered via Meta Cloud API to {clean_phone}"
                     Order.objects.filter(id=order.id).update(whatsapp_sent=True, whatsapp_log=msg)
                     print(f"[Meta WhatsApp API] {msg}")
                 else:
-                    msg = f"FAILED (HTTP {resp_code}) — Meta returned body: {resp_body[:150]}"
+                    msg = f"FAILED (HTTP {resp_code}) — Meta returned response: {resp_body[:150]}"
                     Order.objects.filter(id=order.id).update(whatsapp_sent=False, whatsapp_log=msg)
+
         except urllib.error.HTTPError as err:
             err_body = err.read().decode('utf-8', errors='replace')
-            if err.code == 401 or "OAuthException" in err_body:
-                msg = "FAILED (HTTP 401): WHATSAPP_TOKEN in .env has EXPIRED or is INVALID (Meta Code 190). Please generate a new System User access token in Meta App Dashboard."
+            error_code = None
+            error_msg = err.reason
+            error_type = ""
+            fbtrace_id = ""
+
+            try:
+                err_json = json.loads(err_body)
+                err_details = err_json.get("error", {})
+                error_code = err_details.get("code")
+                error_msg = err_details.get("message", err.reason)
+                error_type = err_details.get("type", "")
+                fbtrace_id = err_details.get("fbtrace_id", "")
+            except Exception:
+                pass
+
+            if err.code == 401 or error_code == 190 or "OAuthException" in error_type:
+                msg = f"FAILED (HTTP 401, Code {error_code or 190}): WHATSAPP_TOKEN in .env is EXPIRED or INVALID. Trace ID: {fbtrace_id}. ACTION REQUIRED: Generate a new System User access token in Meta Business Manager and update .env"
+                print("\n[Meta WhatsApp API ERROR] Authentication Failed!")
+                print(f"  • HTTP Status Code : {err.code}")
+                print(f"  • Error Code       : {error_code or 190}")
+                print(f"  • Error Type       : {error_type or 'OAuthException'}")
+                print(f"  • Message          : {error_msg}")
+                print(f"  • FB Trace ID      : {fbtrace_id}")
+                print("  • ACTION REQUIRED  : Update WHATSAPP_TOKEN in .env with a fresh System User access token from Meta Business Manager.\n")
             else:
-                msg = f"FAILED (HTTP {err.code}): {err.reason} — {err_body[:150]}"
+                msg = f"FAILED (HTTP {err.code}, Code {error_code}): {error_msg} (Trace ID: {fbtrace_id})"
+                print(f"[Meta WhatsApp API HTTP Error] Status {err.code} | Code {error_code}: {error_msg} | Trace: {fbtrace_id}")
 
             Order.objects.filter(id=order.id).update(whatsapp_sent=False, whatsapp_log=msg)
-            print(f"[Meta WhatsApp API] {msg}")
 
         except Exception as e:
             msg = f"FAILED: Unexpected error: {e}"
             Order.objects.filter(id=order.id).update(whatsapp_sent=False, whatsapp_log=msg)
-            print(f"[Meta WhatsApp API] ERROR for Order #{order.order_number}: {e}")
+            print(f"[Meta WhatsApp API ERROR] Unexpected failure for Order #{order.order_number}: {e}")
             traceback.print_exc()
 
     t = threading.Thread(target=_send, daemon=True)
