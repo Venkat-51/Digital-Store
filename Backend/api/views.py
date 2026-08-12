@@ -594,7 +594,7 @@ class ProductListView(APIView):
                 except Exception:
                     pass
 
-                queryset = Product.objects.select_related('category', 'brand').prefetch_related('images', 'specifications').all()
+                queryset = Product.objects.select_related('category', 'brand').prefetch_related('images', 'specifications').defer('description').all()
 
                 category_param = request.query_params.get('category', '').strip().lower()
                 min_price_param = request.query_params.get('min_price')

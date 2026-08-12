@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, Heart, ChevronLeft, ChevronRight, Minus, Plus, Star, Truck, Shield, RefreshCw, ZoomIn, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useProduct, useRelatedProducts, useProductImage } from '@/hooks/useProducts';
+import { useProduct, useRelatedProducts } from '@/hooks/useProducts';
 import { useCart } from '@/hooks/useCart';
 import { useWishlist } from '@/hooks/useWishlist';
 import { Breadcrumb } from '@/components/ui/Navigation';
@@ -29,8 +29,6 @@ const ProductDetailPage: React.FC = () => {
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState<'specs' | 'description'>('specs');
 
-  const { data: imageData, isLoading: isImageLoading } = useProductImage(product?.id ?? 0);
-
   if (isLoading) {
     return (
       <div className="container-wide py-10">
@@ -51,10 +49,9 @@ const ProductDetailPage: React.FC = () => {
     return <ErrorState message="Product not found." />;
   }
 
-  const fetchedImage = imageData?.image_url;
-  const images = fetchedImage ? [{ id: 0, image: fetchedImage, is_primary: true, order: 0 }] : (product.images?.length > 0 ? product.images : [{ id: 0, image: '/placeholder-product.png', is_primary: true, order: 0 }]);
   const discount = product.compare_price ? calcDiscount(product.price, product.compare_price) : 0;
   const inWishlist = isInWishlist(product.id);
+  const images = product.images?.length > 0 ? product.images : [{ id: 0, image: product.thumbnail || '/placeholder-product.png', is_primary: true, order: 0 }];
 
   const handleAddToCart = () => {
     addItem(product, quantity);
@@ -91,22 +88,16 @@ const ProductDetailPage: React.FC = () => {
             {/* Main Image */}
             <div className="relative bg-gray-50 rounded-3xl overflow-hidden aspect-square group">
               <AnimatePresence mode="wait">
-                {isImageLoading ? (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600"></div>
-                  </div>
-                ) : (
-                  <motion.img
-                    key={selectedImage}
-                    src={images[selectedImage]?.image}
-                    alt={`${product.name} - view ${selectedImage + 1}`}
-                    className="w-full h-full object-contain p-8"
-                    initial={{ opacity: 0, scale: 1.02 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.25 }}
-                  />
-                )}
+                <motion.img
+                  key={selectedImage}
+                  src={images[selectedImage]?.image}
+                  alt={`${product?.name || 'Product'} - view ${selectedImage + 1}`}
+                  className="w-full h-full object-contain p-8"
+                  initial={{ opacity: 0, scale: 1.02 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.25 }}
+                />
               </AnimatePresence>
 
               {/* Badges */}

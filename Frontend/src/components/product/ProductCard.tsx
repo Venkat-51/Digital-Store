@@ -9,7 +9,6 @@ import { useCart } from '@/hooks/useCart';
 import { useWishlist } from '@/hooks/useWishlist';
 import type { Product } from '@/types/product.types';
 import { Badge } from '@/components/ui/Badge';
-import { useProductImage } from '@/hooks/useProducts';
 
 interface ProductCardProps {
   product: Product;
@@ -26,11 +25,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickView, classNa
   const inWishlist = isInWishlist(product.id);
   const discount = product.compare_price ? calcDiscount(product.price, product.compare_price) : 0;
   
-  const initialImage = getProductImage(product.images, product.thumbnail);
-  const { data: imageData } = useProductImage(product.id);
-  const image = (imageData?.image_url && imageData.image_url !== '/placeholder-product.png')
-    ? formatImageUrl(imageData.image_url)
-    : initialImage;
+  const image = getProductImage(product.images, product.thumbnail);
 
 
   const handleAddToCart = (e: React.MouseEvent) => {
