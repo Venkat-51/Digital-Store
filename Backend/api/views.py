@@ -276,12 +276,94 @@ def generate_invoice_pdf_buffer(order):
     buffer.seek(0)
     return buffer
 
+def send_brevo_email(to_email, subject, body_text, pdf_bytes=None, pdf_filename="invoice.pdf", to_name=""):
+    """
+    Sends transactional email directly via Brevo HTTP API (v3).
+    Bypasses SMTP ports (465/587) blocked on host platforms like Render free tier.
+
+    :param to_email: Recipient email address
+    :param subject: Email subject line
+    :param body_text: Plain text content for email body
+    :param pdf_bytes: Raw binary bytes of PDF attachment (optional)
+    :param pdf_filename: Display filename for attachment (e.g., 'invoice-123.pdf')
+    :param to_name: Recipient full name (optional)
+    :return: True if successfully sent, False otherwise
+    """
+    import base64
+    import json
+    import urllib.request
+    import urllib.error
+
+    # 1. Read API Key strictly from environment variable (never hardcoded)
+    api_key = os.environ.get("BREVO_API_KEY", "").strip()
+    if not api_key:
+        print("[Brevo API ERROR] BREVO_API_KEY environment variable is not set.")
+        return False
+
+    sender_email = os.environ.get("SENDER_EMAIL", os.environ.get("SMTP_USER", "info@lexicon.sg")).strip()
+    sender_name = os.environ.get("SENDER_NAME", "Lexicon Technology").strip()
+
+    # Build payload structure required by Brevo v3 HTTP API
+    payload = {
+        "sender": {"name": sender_name, "email": sender_email},
+        "to": [{"email": to_email, "name": to_name or to_email}],
+        "subject": subject,
+        "textContent": body_text,
+    }
+
+    # 3. Base64 encode binary PDF content for Brevo API attachment object format: [{"name": ..., "content": ...}]
+    if pdf_bytes:
+        encoded_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
+        payload["attachment"] = [
+            {
+                "name": pdf_filename,
+                "content": encoded_pdf
+            }
+        ]
+
+    headers = {
+        "accept": "application/json",
+        "api-key": api_key,
+        "content-type": "application/json"
+    }
+
+    url = "https://api.brevo.com/v3/smtp/email"
+    data = json.dumps(payload).encode('utf-8')
+    req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+
+    try:
+        with urllib.request.urlopen(req, timeout=15) as response:
+            resp_code = response.getcode()
+            resp_body = response.read().decode('utf-8', errors='replace')
+            print(f"[Brevo API SUCCESS] ({resp_code}) -> Sent email to {to_email}: {resp_body}")
+            return True
+    except urllib.error.HTTPError as err:
+        # 4. Clear error logging (HTTP status code + response body) for Render log visibility
+        err_body = err.read().decode('utf-8', errors='replace')
+        print(f"[Brevo API HTTP Error] Status Code: {err.code} | Response Body: {err_body}")
+        return False
+    except Exception as exc:
+        print(f"[Brevo API Exception] Failed sending email to {to_email}: {exc}")
+        return False
+
+
 def _build_gmail_api_service():
     """
     Builds and returns an authenticated Gmail API service object.
-    Supports either GMAIL_TOKEN_JSON env var or token.json file (OAuth2).
+    Gated: strictly checks GMAIL_TOKEN_JSON environment variable or token.json file when explicitly requested.
     """
     try:
+        # 5. Gate Gmail API fallback behind explicit GMAIL_TOKEN_JSON env var check
+        env_token = os.environ.get("GMAIL_TOKEN_JSON")
+        if not env_token:
+            _this_file = os.path.abspath(__file__)
+            _api_dir   = os.path.dirname(_this_file)
+            _base_dir  = os.path.dirname(_api_dir)
+            token_path = os.path.join(_base_dir, 'token.json')
+            if not os.path.exists(token_path):
+                # Silent return when Gmail API is not configured (prevents noisy log errors)
+                return None
+
         from google.oauth2.credentials import Credentials
         from google.auth.transport.requests import Request
         from googleapiclient.discovery import build
@@ -290,71 +372,50 @@ def _build_gmail_api_service():
         creds = None
         SCOPES = ['https://www.googleapis.com/auth/gmail.send']
 
-        # 1. Check GMAIL_TOKEN_JSON environment variable
-        env_token = os.environ.get("GMAIL_TOKEN_JSON")
         if env_token:
             try:
                 token_info = json.loads(env_token)
                 creds = Credentials.from_authorized_user_info(token_info, SCOPES)
-                print("[Gmail API] Loaded credentials from GMAIL_TOKEN_JSON environment variable.")
             except Exception as env_e:
                 print(f"[Gmail API] Error parsing GMAIL_TOKEN_JSON env var: {env_e}")
 
-        # 2. Fallback to token.json file on disk
-        if not creds:
-            _this_file = os.path.abspath(__file__)
-            _api_dir   = os.path.dirname(_this_file)
-            _base_dir  = os.path.dirname(_api_dir)
-            token_path = os.path.join(_base_dir, 'token.json')
-            print(f"[Gmail API] Looking for token.json at: {token_path}")
+        if not creds and os.path.exists(token_path):
+            creds = Credentials.from_authorized_user_file(token_path, SCOPES)
 
-            if os.path.exists(token_path):
-                creds = Credentials.from_authorized_user_file(token_path, SCOPES)
-            else:
-                print("[Gmail API] token.json NOT FOUND on disk and GMAIL_TOKEN_JSON env var not set.")
-                return None
+        if not creds:
+            return None
 
         if not creds.valid:
             if creds.expired and creds.refresh_token:
                 creds.refresh(Request())
-                print("[Gmail API] Token refreshed successfully.")
             else:
-                print("[Gmail API] Token invalid/expired.")
                 return None
 
-        service = build('gmail', 'v1', credentials=creds)
-        print("[Gmail API] Service built successfully.")
-        return service
+        return build('gmail', 'v1', credentials=creds)
     except Exception as e:
-        print(f"[Gmail API] Failed to build service: {e}")
-        import traceback; traceback.print_exc()
+        print(f"[Gmail API] Service build skipped/failed: {e}")
         return None
 
 
 def send_owner_email_invoice_async(order):
     """
-    Dispatches order invoice emails in background thread to both:
-    1. The customer (order.customer_email) - Order Confirmation & Invoice
-    2. The store owner (OWNER_EMAIL/ADMIN_EMAIL) - New Order Notification
+    Dispatches order invoice emails in background thread using Brevo HTTP API directly.
+    Recipients:
+    1. Customer (order.customer_email)
+    2. Store owner (OWNER_EMAIL/ADMIN_EMAIL)
     """
     def _send():
         import traceback
-        import base64
 
-        smtp_host   = os.environ.get("SMTP_HOST", "smtp.gmail.com")
-        smtp_port   = int(os.environ.get("SMTP_PORT", "587"))
-        smtp_user   = os.environ.get("SMTP_USER", "")
-        smtp_pass   = os.environ.get("SMTP_PASSWORD", "")
         owner_email = os.environ.get("OWNER_EMAIL", "venkateswaranuec@gmail.com").strip()
-
-        # Build list of recipient emails: (email, is_owner_copy)
         recipients = []
+
         cust_email = (order.customer_email or "").strip()
         if cust_email and "@" in cust_email:
-            recipients.append((cust_email, False))
+            recipients.append((cust_email, order.customer_name, False))
 
         if owner_email and "@" in owner_email and not any(r[0].lower() == owner_email.lower() for r in recipients):
-            recipients.append((owner_email, True))
+            recipients.append((owner_email, "Store Owner", True))
 
         if not recipients:
             print(f"[Email] SKIPPED Order #{order.order_number} - no valid recipient emails.")
@@ -363,20 +424,13 @@ def send_owner_email_invoice_async(order):
         try:
             print(f"[Email] Preparing invoice PDF for Order #{order.order_number}...")
             pdf_buffer = generate_invoice_pdf_buffer(order)
-            pdf_data   = pdf_buffer.getvalue()
+            pdf_bytes  = pdf_buffer.getvalue()
+            pdf_name   = f"invoice-{order.order_number}.pdf"
 
-            # Check sending method: SMTP (from .env) or Gmail API (token.json/env)
-            service = None
-            if not (smtp_user and smtp_pass):
-                service = _build_gmail_api_service()
-
-            for target_email, is_owner in recipients:
-                msg = MIMEMultipart()
-                msg['From'] = smtp_user or "noreply@lexicon.sg"
-                msg['To']   = target_email
-
+            any_success = False
+            for target_email, target_name, is_owner in recipients:
                 if is_owner:
-                    msg['Subject'] = f"New Order Received - #{order.order_number}"
+                    subject = f"New Order Received - #{order.order_number}"
                     body = (
                         f"Hello Store Owner,\n\n"
                         f"A new order #{order.order_number} has been confirmed.\n\n"
@@ -388,7 +442,7 @@ def send_owner_email_invoice_async(order):
                         f"- Lexicon Technology Automated Order System"
                     )
                 else:
-                    msg['Subject'] = f"Order Confirmation & Invoice - #{order.order_number}"
+                    subject = f"Order Confirmation & Invoice - #{order.order_number}"
                     body = (
                         f"Dear {order.customer_name},\n\n"
                         f"Thank you for shopping with Lexicon Technology!\n"
@@ -399,60 +453,49 @@ def send_owner_email_invoice_async(order):
                         f"Lexicon Technology Team"
                     )
 
-                msg.attach(MIMEText(body, 'plain'))
-                part = MIMEApplication(pdf_data, Name=f"invoice-{order.order_number}.pdf")
-                part.add_header('Content-Disposition', 'attachment', filename=f"invoice-{order.order_number}.pdf")
-                msg.attach(part)
+                # 1. Primary: Direct Brevo HTTP API call (bypasses SMTP entirely)
+                sent = send_brevo_email(
+                    to_email=target_email,
+                    subject=subject,
+                    body_text=body,
+                    pdf_bytes=pdf_bytes,
+                    pdf_filename=pdf_name,
+                    to_name=target_name
+                )
 
-                sent = False
-                # 1. Primary: Direct SMTP via .env credentials
-                if smtp_user and smtp_pass:
-                    # Attempt 1a: Port specified (default 587 or 465)
-                    try:
-                        if smtp_port == 465:
-                            with smtplib.SMTP_SSL(smtp_host, 465, timeout=15) as server:
-                                server.login(smtp_user, smtp_pass)
-                                server.send_message(msg)
-                        else:
-                            with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
-                                server.ehlo()
-                                server.starttls()
-                                server.ehlo()
-                                server.login(smtp_user, smtp_pass)
-                                server.send_message(msg)
-                        sent = True
-                        print(f"[Email] SUCCESS via SMTP -> Sent invoice to {target_email}")
-                    except Exception as smtp_err:
-                        print(f"[Email WARNING] SMTP port {smtp_port} failed for {target_email}: {smtp_err}. Trying SSL port 465...")
-                        
-                        # Attempt 1b: Fallback to SSL port 465 if port 587 was blocked by host
-                        if smtp_port != 465:
-                            try:
-                                with smtplib.SMTP_SSL(smtp_host, 465, timeout=15) as server:
-                                    server.login(smtp_user, smtp_pass)
-                                    server.send_message(msg)
-                                sent = True
-                                print(f"[Email] SUCCESS via SMTP SSL (465) -> Sent invoice to {target_email}")
-                            except Exception as ssl_err:
-                                print(f"[Email WARNING] SMTP SSL 465 also failed for {target_email}: {ssl_err}. Trying Gmail API fallback...")
-
-                # 2. Fallback: Gmail API OAuth2 (from GMAIL_TOKEN_JSON env var or token.json file)
-                if not sent:
-                    if service is None:
-                        service = _build_gmail_api_service()
+                # 5. Gated Fallback: Only attempt Gmail API if Brevo failed AND GMAIL_TOKEN_JSON is set
+                if not sent and os.environ.get("GMAIL_TOKEN_JSON"):
+                    print(f"[Email Fallback] Attempting Gmail API fallback for {target_email}...")
+                    service = _build_gmail_api_service()
                     if service:
                         try:
+                            import base64
+                            from email.mime.multipart import MIMEMultipart
+                            from email.mime.text import MIMEText
+                            from email.mime.application import MIMEApplication
+
+                            msg = MIMEMultipart()
+                            msg['From'] = os.environ.get("SENDER_EMAIL", "noreply@lexicon.sg")
+                            msg['To']   = target_email
+                            msg['Subject'] = subject
+                            msg.attach(MIMEText(body, 'plain'))
+
+                            part = MIMEApplication(pdf_bytes, Name=pdf_name)
+                            part.add_header('Content-Disposition', 'attachment', filename=pdf_name)
+                            msg.attach(part)
+
                             raw_message = base64.urlsafe_b64encode(msg.as_bytes()).decode('utf-8')
                             service.users().messages().send(userId='me', body={'raw': raw_message}).execute()
                             sent = True
-                            print(f"[Email] SUCCESS via Gmail API -> Sent invoice to {target_email}")
+                            print(f"[Email SUCCESS] via Gmail API -> Sent invoice to {target_email}")
                         except Exception as g_err:
-                            print(f"[Email ERROR] Gmail API failed for {target_email}: {g_err}")
-                    else:
-                        print(f"[Email] SKIPPED for {target_email} - missing/failed SMTP and no valid Gmail API credentials.")
+                            print(f"[Email ERROR] Gmail API fallback failed for {target_email}: {g_err}")
 
+                if sent:
+                    any_success = True
 
-            Order.objects.filter(id=order.id).update(email_sent=True)
+            if any_success:
+                Order.objects.filter(id=order.id).update(email_sent=True)
 
         except Exception as e:
             print(f"[Email ERROR] Failed sending invoice for Order #{order.order_number}: {e}")
@@ -746,9 +789,19 @@ class ProductDetailView(APIView):
                 except Exception:
                     pass
 
-                product = Product.objects.select_related('category', 'brand').prefetch_related('images', 'specifications').filter(slug__iexact=slug).first()
-                if not product and slug.isdigit():
-                    product = Product.objects.select_related('category', 'brand').prefetch_related('images', 'specifications').filter(id=int(slug)).first()
+                clean_slug = urllib.parse.unquote(slug).strip().lower()
+                alt_slug = clean_slug.replace('_', '-').replace(' ', '-')
+                alt_slug2 = clean_slug.replace('-', '_').replace(' ', '_')
+
+                product = Product.objects.select_related('category', 'brand').prefetch_related('images', 'specifications').filter(
+                    Q(slug__iexact=clean_slug) |
+                    Q(slug__iexact=alt_slug) |
+                    Q(slug__iexact=alt_slug2) |
+                    Q(name__iexact=clean_slug.replace('-', ' '))
+                ).first()
+
+                if not product and clean_slug.isdigit():
+                    product = Product.objects.select_related('category', 'brand').prefetch_related('images', 'specifications').filter(id=int(clean_slug)).first()
 
                 if not product:
                     return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)

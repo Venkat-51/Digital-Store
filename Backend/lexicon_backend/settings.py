@@ -105,15 +105,15 @@ if database_url:
         parsed = urlparse(database_url)
         host = parsed.hostname
         if host:
-            # Set quick timeout for DNS test to avoid blocking server boot when offline
             old_timeout = socket.getdefaulttimeout()
             socket.setdefaulttimeout(3.0)
             try:
-                socket.getaddrinfo(host, 5432)
+                s = socket.create_connection((host, 5432), timeout=3.0)
+                s.close()
             finally:
                 socket.setdefaulttimeout(old_timeout)
     except Exception as e:
-        print(f"\n[DATABASE CONNECTION WARNING] Failed to resolve PostgreSQL host '{host}': {e}")
+        print(f"\n[DATABASE CONNECTION WARNING] Failed to connect to PostgreSQL host '{host}': {e}")
         print("Falling back to local SQLite database (db.sqlite3) for offline/local development...\n")
         use_sqlite = True
 
@@ -131,12 +131,15 @@ else:
             default=database_url,
             conn_max_age=0,
             conn_health_checks=True,
+            ssl_require=True,
         )
     }
     DATABASES["default"]["DISABLE_SERVER_SIDE_CURSORS"] = True
     if "postgresql" in DATABASES["default"]["ENGINE"]:
         DATABASES["default"].setdefault("OPTIONS", {})
         DATABASES["default"]["OPTIONS"].update({
+            "sslmode": "require",
+            "connect_timeout": 10,
             "keepalives": 1,
             "keepalives_idle": 30,
             "keepalives_interval": 10,
