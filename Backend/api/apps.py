@@ -12,16 +12,23 @@ def validate_whatsapp_config():
     business_account_id = os.environ.get("WHATSAPP_BUSINESS_ACCOUNT_ID", os.environ.get("WHATSAPP_ID", "")).strip()
     api_version = os.environ.get("WHATSAPP_API_VERSION", "v18.0").strip()
 
-    print("\n[WhatsApp Cloud API Environment Validation]")
+    print("\n[External API Environment Validation]")
     print(f"  • WHATSAPP_API_VERSION           : {api_version}")
     print(f"  • WHATSAPP_PHONE_NUMBER_ID       : {phone_number_id if phone_number_id else 'NOT SET ⚠️'}")
     print(f"  • WHATSAPP_BUSINESS_ACCOUNT_ID   : {business_account_id if business_account_id else 'NOT SET (Optional)'}")
     
     if token:
         hidden_token = f"{token[:6]}...{token[-4:]}" if len(token) > 10 else "***"
-        print(f"  • WHATSAPP_TOKEN                 : Configured ({hidden_token}, length {len(token)})\n")
+        print(f"  • WHATSAPP_TOKEN                 : Configured ({hidden_token}, length {len(token)})")
     else:
-        print("  • WHATSAPP_TOKEN                 : NOT SET ⚠️\n")
+        print("  • WHATSAPP_TOKEN                 : NOT SET ⚠️")
+
+    brevo_key = os.environ.get("BREVO_API_KEY", "").strip()
+    if brevo_key and brevo_key != "YOUR_BREVO_API_KEY":
+        hidden_brevo = f"{brevo_key[:6]}...{brevo_key[-4:]}" if len(brevo_key) > 10 else "***"
+        print(f"  • BREVO_API_KEY                  : Configured ({hidden_brevo}, length {len(brevo_key)})\n")
+    else:
+        print("  • BREVO_API_KEY                  : NOT SET / PLACEHOLDER (Falling back to local SMTP)\n")
 
 
 class ApiConfig(AppConfig):
