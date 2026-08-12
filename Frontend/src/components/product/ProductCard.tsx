@@ -12,11 +12,12 @@ import { Badge } from '@/components/ui/Badge';
 
 interface ProductCardProps {
   product: Product;
+  index?: number;
   onQuickView?: (product: Product) => void;
   className?: string;
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickView, className }) => {
+const ProductCard: React.FC<ProductCardProps> = ({ product, index, onQuickView, className }) => {
   const { addItem, isInCart } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
   const [isHovered, setIsHovered] = useState(false);
@@ -65,7 +66,8 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickView, classNa
           <motion.img
             src={image || 'https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=600&auto=format&fit=crop&q=80'}
             alt={product.name}
-            loading="lazy"
+            loading={typeof index === 'number' && index < 4 ? 'eager' : 'lazy'}
+            decoding="async"
             className="w-full h-full object-contain p-4 transition-transform duration-500 group-hover:scale-105"
             onError={(e) => {
               (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=600&auto=format&fit=crop&q=80';

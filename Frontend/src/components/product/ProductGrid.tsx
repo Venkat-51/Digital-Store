@@ -66,10 +66,11 @@ const ProductGrid: React.FC<ProductGridProps> = ({
           view === 'grid' ? gridCols : 'grid-cols-1',
         )}
       >
-        {products.map((product) => (
+        {products.map((product, index) => (
           <ProductCard
             key={product.id}
             product={product}
+            index={index}
             onQuickView={onQuickView}
           />
         ))}
