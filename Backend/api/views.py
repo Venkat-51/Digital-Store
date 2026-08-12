@@ -458,6 +458,34 @@ def send_owner_email_invoice_async(order):
                         f"Lexicon Technology Team"
                     )
 
+            any_success = False
+            log_messages = []
+
+            for target_email, target_name, is_owner in recipients:
+                if is_owner:
+                    subject = f"New Order Received - #{order.order_number}"
+                    body = (
+                        f"Hello Store Owner,\n\n"
+                        f"A new order #{order.order_number} has been confirmed.\n\n"
+                        f"Customer : {order.customer_name}\n"
+                        f"Email    : {order.customer_email}\n"
+                        f"Phone    : {order.customer_phone}\n"
+                        f"Total    : SGD ${order.total:.2f}\n\n"
+                        f"Invoice PDF is attached.\n\n"
+                        f"- Lexicon Technology Automated Order System"
+                    )
+                else:
+                    subject = f"Order Confirmation & Invoice - #{order.order_number}"
+                    body = (
+                        f"Dear {order.customer_name},\n\n"
+                        f"Thank you for shopping with Lexicon Technology!\n"
+                        f"Your order #{order.order_number} has been confirmed.\n\n"
+                        f"Total Amount: SGD ${order.total:.2f}\n\n"
+                        f"Your tax invoice is attached as a PDF.\n\n"
+                        f"Best regards,\n"
+                        f"Lexicon Technology Team"
+                    )
+
                 # 1. Primary: Direct Brevo HTTP API call (if BREVO_API_KEY is configured in .env)
                 sent = False
                 if os.environ.get("BREVO_API_KEY"):
@@ -469,6 +497,8 @@ def send_owner_email_invoice_async(order):
                         pdf_filename=pdf_name,
                         to_name=target_name
                     )
+                    if sent:
+                        log_messages.append(f"SUCCESS: Sent via Brevo HTTP API to {target_email}")
 
                 # 2. Local Fallback: Direct SMTP if SMTP credentials exist in .env
                 smtp_user = os.environ.get("SMTP_USER", "").strip()
@@ -505,8 +535,10 @@ def send_owner_email_invoice_async(order):
                                 server.login(smtp_user, smtp_pass)
                                 server.send_message(msg)
                         sent = True
+                        log_messages.append(f"SUCCESS: Sent via SMTP ({smtp_host}) to {target_email}")
                         print(f"[Email SUCCESS] via SMTP -> Sent invoice to {target_email}")
                     except Exception as smtp_err:
+                        log_messages.append(f"FAILED: SMTP error for {target_email}: {smtp_err}")
                         print(f"[Email WARNING] SMTP failed for {target_email}: {smtp_err}")
 
                 # 3. Gated Fallback: Only attempt Gmail API if Brevo/SMTP failed AND GMAIL_TOKEN_JSON is set
@@ -533,17 +565,28 @@ def send_owner_email_invoice_async(order):
                             raw_message = base64.urlsafe_b64encode(msg.as_bytes()).decode('utf-8')
                             service.users().messages().send(userId='me', body={'raw': raw_message}).execute()
                             sent = True
+                            log_messages.append(f"SUCCESS: Sent via Gmail API to {target_email}")
                             print(f"[Email SUCCESS] via Gmail API -> Sent invoice to {target_email}")
                         except Exception as g_err:
+                            log_messages.append(f"FAILED: Gmail API error for {target_email}: {g_err}")
                             print(f"[Email ERROR] Gmail API fallback failed for {target_email}: {g_err}")
+
+                if not sent:
+                    if not os.environ.get("BREVO_API_KEY") and not (smtp_user and smtp_pass):
+                        log_messages.append(f"FAILED: Missing BREVO_API_KEY and SMTP credentials in .env for {target_email}")
 
                 if sent:
                     any_success = True
 
-            if any_success:
-                Order.objects.filter(id=order.id).update(email_sent=True)
+            status_log_str = " | ".join(log_messages) if log_messages else "Skipped: No valid recipients"
+            Order.objects.filter(id=order.id).update(
+                email_sent=any_success,
+                email_log=status_log_str
+            )
 
         except Exception as e:
+            err_msg = f"FAILED: Unexpected error: {e}"
+            Order.objects.filter(id=order.id).update(email_sent=False, email_log=err_msg)
             print(f"[Email ERROR] Failed sending invoice for Order #{order.order_number}: {e}")
             traceback.print_exc()
 
@@ -553,7 +596,7 @@ def send_owner_email_invoice_async(order):
 def send_whatsapp_invoice_async(order, recipient_phone=None):
     """
     Dispatches order invoice notification via Meta WhatsApp Cloud API in a background thread.
-    Updates order.whatsapp_sent = True on confirmed HTTP success (200/201).
+    Updates order.whatsapp_sent and order.whatsapp_log on completion.
     """
     def _send():
         import traceback
@@ -565,13 +608,17 @@ def send_whatsapp_invoice_async(order, recipient_phone=None):
             target_phone = recipient_phone or order.customer_phone or os.environ.get("OWNER_WHATSAPP", "919500882090")
 
             if not phone_number_id or not token:
-                print(f"[Meta WhatsApp API] SKIPPED — WHATSAPP_PHONE_NUMBER_ID or WHATSAPP_TOKEN not set in .env")
+                msg = "SKIPPED — WHATSAPP_PHONE_NUMBER_ID or WHATSAPP_TOKEN not configured in .env"
+                Order.objects.filter(id=order.id).update(whatsapp_sent=False, whatsapp_log=msg)
+                print(f"[Meta WhatsApp API] {msg}")
                 return
 
             # Clean target phone number to digits only
             clean_phone = "".join(filter(str.isdigit, str(target_phone)))
             if not clean_phone:
-                print(f"[Meta WhatsApp API] FAILED — Invalid phone number '{target_phone}' for Order #{order.order_number}")
+                msg = f"FAILED — Invalid target phone number '{target_phone}'"
+                Order.objects.filter(id=order.id).update(whatsapp_sent=False, whatsapp_log=msg)
+                print(f"[Meta WhatsApp API] {msg}")
                 return
 
             items_summary = ", ".join([f"{item.product_name} (x{item.quantity})" for item in order.items.all()]) or "Products"
@@ -613,20 +660,25 @@ def send_whatsapp_invoice_async(order, recipient_phone=None):
                 print(f"[Meta WhatsApp API] Response ({resp_code}): {resp_body}")
 
                 if resp_code in (200, 201):
-                    Order.objects.filter(id=order.id).update(whatsapp_sent=True)
-                    print(f"[Meta WhatsApp API] SUCCESS (HTTP {resp_code}) — whatsapp_sent=True for Order #{order.order_number}")
+                    msg = f"SUCCESS (HTTP {resp_code}) — Message delivered via Meta Cloud API to {clean_phone}"
+                    Order.objects.filter(id=order.id).update(whatsapp_sent=True, whatsapp_log=msg)
+                    print(f"[Meta WhatsApp API] {msg}")
                 else:
-                    Order.objects.filter(id=order.id).update(whatsapp_sent=False)
+                    msg = f"FAILED (HTTP {resp_code}) — Meta returned body: {resp_body[:150]}"
+                    Order.objects.filter(id=order.id).update(whatsapp_sent=False, whatsapp_log=msg)
         except urllib.error.HTTPError as err:
             err_body = err.read().decode('utf-8', errors='replace')
-            Order.objects.filter(id=order.id).update(whatsapp_sent=False)
-            print(f"[Meta WhatsApp API] HTTP Error {err.code}: {err.reason}")
-            print(f"[Meta WhatsApp API] Response details from Meta: {err_body}")
             if err.code == 401 or "OAuthException" in err_body:
-                print("[Meta WhatsApp API WARNING] WHATSAPP_TOKEN in .env has EXPIRED or is INVALID (Code 190). Please generate a new System User access token in your Meta App Dashboard and update WHATSAPP_TOKEN in .env")
+                msg = "FAILED (HTTP 401): WHATSAPP_TOKEN in .env has EXPIRED or is INVALID (Meta Code 190). Please generate a new System User access token in Meta App Dashboard."
+            else:
+                msg = f"FAILED (HTTP {err.code}): {err.reason} — {err_body[:150]}"
+
+            Order.objects.filter(id=order.id).update(whatsapp_sent=False, whatsapp_log=msg)
+            print(f"[Meta WhatsApp API] {msg}")
 
         except Exception as e:
-            Order.objects.filter(id=order.id).update(whatsapp_sent=False)
+            msg = f"FAILED: Unexpected error: {e}"
+            Order.objects.filter(id=order.id).update(whatsapp_sent=False, whatsapp_log=msg)
             print(f"[Meta WhatsApp API] ERROR for Order #{order.order_number}: {e}")
             traceback.print_exc()
 

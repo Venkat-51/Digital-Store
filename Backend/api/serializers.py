@@ -134,7 +134,7 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'order_number', 'customer', 'items', 'status',
             'shipping_address', 'subtotal', 'shipping_cost', 'tax', 'total',
-            'email_sent', 'whatsapp_sent', 'whatsapp_url', 'created_at', 'updated_at'
+            'email_sent', 'email_log', 'whatsapp_sent', 'whatsapp_log', 'whatsapp_url', 'created_at', 'updated_at'
         ]
 
 

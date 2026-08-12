@@ -105,7 +105,9 @@ class Order(models.Model):
     total = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='confirmed')
     email_sent = models.BooleanField(default=False)
+    email_log = models.TextField(blank=True, default="Pending dispatch")
     whatsapp_sent = models.BooleanField(default=False)
+    whatsapp_log = models.TextField(blank=True, default="Pending dispatch")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
