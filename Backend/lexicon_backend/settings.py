@@ -98,25 +98,29 @@ import dj_database_url
 from urllib.parse import urlparse
 
 database_url = os.environ.get("DATABASE_URL")
-use_sqlite = False
+use_sqlite = str(os.environ.get("USE_SQLITE", "false")).lower() in ["true", "1", "yes"]
 
-if database_url:
+if database_url and not use_sqlite:
     try:
         parsed = urlparse(database_url)
         host = parsed.hostname
+        port = parsed.port or 5432
         if host:
-            old_timeout = socket.getdefaulttimeout()
-            socket.setdefaulttimeout(3.0)
+            # Prefer IPv4 resolution first to bypass Windows IPv6 routing timeouts on port 5432
+            target_ip = None
             try:
-                s = socket.create_connection((host, 5432), timeout=3.0)
-                s.close()
-            finally:
-                socket.setdefaulttimeout(old_timeout)
-    except Exception as e:
-        print(f"\n[DATABASE CONNECTION WARNING] Failed to connect to PostgreSQL host '{host}': {e}")
-        print("Falling back to local SQLite database (db.sqlite3) for offline/local development...\n")
-        use_sqlite = True
+                addr_info = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
+                if addr_info:
+                    target_ip = addr_info[0][4][0]
+            except Exception:
+                target_ip = host
 
+            s = socket.create_connection((target_ip or host, port), timeout=2.5)
+            s.close()
+    except Exception as e:
+        print(f"\n[DATABASE CONNECTION WARNING] Cannot reach remote PostgreSQL host '{host}': {e}")
+        print("[DATABASE FALLBACK] Automatically switching to local SQLite database (db.sqlite3)...\n")
+        use_sqlite = True
 
 if use_sqlite or not database_url:
     DATABASES = {
@@ -139,11 +143,7 @@ else:
         DATABASES["default"].setdefault("OPTIONS", {})
         DATABASES["default"]["OPTIONS"].update({
             "sslmode": "require",
-            "connect_timeout": 10,
-            "keepalives": 1,
-            "keepalives_idle": 30,
-            "keepalives_interval": 10,
-            "keepalives_count": 5,
+            "connect_timeout": 5,
         })
 
 
