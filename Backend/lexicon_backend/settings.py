@@ -115,7 +115,7 @@ if database_url and not use_sqlite:
             except Exception:
                 target_ip = host
 
-            s = socket.create_connection((target_ip or host, port), timeout=2.5)
+            s = socket.create_connection((target_ip or host, port), timeout=10.0)
             s.close()
     except Exception as e:
         print(f"\n[DATABASE CONNECTION WARNING] Cannot reach remote PostgreSQL host '{host}': {e}")
@@ -133,11 +133,13 @@ else:
     DATABASES = {
         "default": dj_database_url.config(
             default=database_url,
-            conn_max_age=0,
+            conn_max_age=600,
             conn_health_checks=True,
             ssl_require=True,
         )
     }
+    DATABASES["default"]["OPTIONS"] = DATABASES["default"].get("OPTIONS", {})
+    DATABASES["default"]["OPTIONS"]["connect_timeout"] = 10
     DATABASES["default"]["DISABLE_SERVER_SIDE_CURSORS"] = True
     if "postgresql" in DATABASES["default"]["ENGINE"]:
         DATABASES["default"].setdefault("OPTIONS", {})

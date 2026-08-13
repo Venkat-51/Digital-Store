@@ -81,7 +81,6 @@ const Navbar: React.FC = () => {
     e.preventDefault();
     if (query.trim()) {
       navigate(`${ROUTES.SEARCH}?q=${encodeURIComponent(query.trim())}${searchCategory !== 'All' ? `&category=${searchCategory}` : ''}`);
-      setQuery('');
       setIsMobileSearchOpen(false);
     }
   };

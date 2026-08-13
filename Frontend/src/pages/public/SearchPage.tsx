@@ -7,12 +7,7 @@ import { Breadcrumb } from '@/components/ui/Navigation';
 
 const SearchPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialQuery = searchParams.get('q') ?? '';
   const { query, setQuery, results, isLoading, recentSearches, saveSearch, clearRecentSearches } = useSearch();
-
-  React.useEffect(() => {
-    if (initialQuery) setQuery(initialQuery);
-  }, [initialQuery, setQuery]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

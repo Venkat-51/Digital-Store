@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { productsService } from '@/services/products.service';
 import { QUERY_KEYS } from '@/constants/queryKeys';
@@ -9,8 +10,15 @@ const RECENT_SEARCHES_KEY = 'lexicon_recent_searches';
 const MAX_RECENT = 8;
 
 export const useSearch = () => {
-  const [query, setQuery] = useState('');
+  const location = useLocation();
+  const qParam = new URLSearchParams(location.search).get('q') ?? '';
+
+  const [query, setQuery] = useState(qParam);
   const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    setQuery(qParam);
+  }, [qParam]);
 
   const debouncedQuery = useDebounce(query, 400);
 
