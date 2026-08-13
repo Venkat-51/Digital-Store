@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ShoppingCart, Heart, Search, Menu, X, ChevronDown, ChevronRight,
@@ -38,15 +38,36 @@ const Navbar: React.FC = () => {
 
   const [searchCategory, setSearchCategory] = useState('All');
   const [isSearchCatOpen, setIsSearchCatOpen] = useState(false);
+  const [isLiveResultsOpen, setIsLiveResultsOpen] = useState(false);
 
   const searchRef = useRef<HTMLInputElement>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const { itemCount, subtotal, openCart, toggleCart, closeCart } = useCart();
   const { count: wishlistCount } = useWishlist();
   const { user, isAuthenticated, logout } = useAuth();
   const { query, setQuery, results, isLoading: isSearchLoading } = useSearch();
+
+  // Close live search results dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setIsLiveResultsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Close live search results dropdown on route change
+  useEffect(() => {
+    setIsLiveResultsOpen(false);
+  }, [location.pathname, location.search]);
 
   // Close profile dropdown when clicking outside
   useEffect(() => {
@@ -80,6 +101,8 @@ const Navbar: React.FC = () => {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (query.trim()) {
+      setIsLiveResultsOpen(false);
+      searchRef.current?.blur();
       navigate(`${ROUTES.SEARCH}?q=${encodeURIComponent(query.trim())}${searchCategory !== 'All' ? `&category=${searchCategory}` : ''}`);
       setIsMobileSearchOpen(false);
     }
@@ -127,7 +150,7 @@ const Navbar: React.FC = () => {
 
 
           {/* Search Bar - Desktop */}
-          <div className="hidden lg:flex flex-1 min-w-0 relative z-20">
+          <div ref={searchContainerRef} className="hidden lg:flex flex-1 min-w-0 relative z-20">
             <form onSubmit={handleSearch} className="flex w-full border-2 border-primary-900 rounded-lg overflow-hidden bg-white shadow-xs">
 
               {/* Input */}
@@ -135,7 +158,11 @@ const Navbar: React.FC = () => {
                 ref={searchRef}
                 type="search"
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onFocus={() => setIsLiveResultsOpen(true)}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setIsLiveResultsOpen(true);
+                }}
                 placeholder="Search your favorite product..."
                 className="flex-1 px-4 py-2.5 outline-none text-sm"
               />
@@ -150,14 +177,14 @@ const Navbar: React.FC = () => {
             </form>
 
             {/* Search Live Results */}
-            {query && !isSearchLoading && results.length > 0 && (
+            {isLiveResultsOpen && query && !isSearchLoading && results.length > 0 && (
               <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg shadow-xl border border-gray-100 max-h-80 overflow-y-auto z-50">
                 {results.slice(0, 5).map((p) => (
                   <Link
                     key={p.id}
                     to={`/products/${p.slug}`}
                     className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0"
-                    onClick={() => setQuery('')}
+                    onClick={() => setIsLiveResultsOpen(false)}
                   >
                     <div className="w-10 h-10 bg-gray-100 rounded flex-shrink-0">
                       <img src={p.thumbnail || '/placeholder-product.png'} alt={p.name} className="w-full h-full object-cover" />
@@ -384,7 +411,11 @@ const Navbar: React.FC = () => {
                   ref={searchRef}
                   type="search"
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  onFocus={() => setIsLiveResultsOpen(true)}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setIsLiveResultsOpen(true);
+                  }}
                   placeholder="Search products..."
                   className="bg-transparent flex-1 min-w-0 outline-none text-sm text-gray-900 placeholder:text-gray-400"
                   autoFocus
@@ -400,7 +431,7 @@ const Navbar: React.FC = () => {
               </form>
 
               {/* Mobile Search Live Results */}
-              {query && !isSearchLoading && results.length > 0 && (
+              {isLiveResultsOpen && query && !isSearchLoading && results.length > 0 && (
                 <div className="mt-2 bg-white rounded-xl border border-gray-100 shadow-xl max-h-60 overflow-y-auto">
                   {results.slice(0, 5).map((p) => (
                     <Link
@@ -408,7 +439,7 @@ const Navbar: React.FC = () => {
                       to={`/products/${p.slug}`}
                       className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 border-b border-gray-50 last:border-0"
                       onClick={() => {
-                        setQuery('');
+                        setIsLiveResultsOpen(false);
                         setIsMobileSearchOpen(false);
                       }}
                     >
