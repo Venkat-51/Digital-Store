@@ -115,7 +115,7 @@ if database_url and not use_sqlite:
             except Exception:
                 target_ip = host
 
-            s = socket.create_connection((target_ip or host, port), timeout=10.0)
+            s = socket.create_connection((target_ip or host, port), timeout=2.5)
             s.close()
     except Exception as e:
         print(f"\n[DATABASE CONNECTION WARNING] Cannot reach remote PostgreSQL host '{host}': {e}")

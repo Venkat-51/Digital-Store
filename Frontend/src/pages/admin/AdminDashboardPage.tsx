@@ -212,9 +212,9 @@ export const AdminDashboardPage: React.FC = () => {
 
         {/* TAB 1: PRODUCTS MANAGEMENT */}
         {activeTab === 'products' && (
-          <div className="p-6 space-y-6">
+          <div className="p-4 sm:p-6 space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex flex-col sm:flex-row items-center gap-3 flex-1">
+              <div className="flex flex-col sm:flex-row items-center gap-3 flex-1 w-full">
                 <div className="relative w-full sm:w-72">
                   <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input
@@ -238,13 +238,13 @@ export const AdminDashboardPage: React.FC = () => {
                 </select>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-between sm:justify-start">
                 <Button
                   variant="outline"
                   size="sm"
                   leftIcon={<Download size={14} />}
                   onClick={handleDownloadTemplate}
-                  className="rounded-xl text-xs"
+                  className="flex-1 sm:flex-none rounded-xl text-xs whitespace-nowrap"
                 >
                   CSV Template
                 </Button>
@@ -253,7 +253,7 @@ export const AdminDashboardPage: React.FC = () => {
                   size="sm"
                   leftIcon={<Upload size={14} />}
                   onClick={() => setIsBulkModalOpen(true)}
-                  className="rounded-xl text-xs"
+                  className="flex-1 sm:flex-none rounded-xl text-xs whitespace-nowrap"
                 >
                   Bulk Import CSV
                 </Button>
@@ -265,7 +265,7 @@ export const AdminDashboardPage: React.FC = () => {
                     setSelectedProduct(null);
                     setIsProductModalOpen(true);
                   }}
-                  className="rounded-xl text-xs font-bold"
+                  className="w-full sm:w-auto rounded-xl text-xs font-bold whitespace-nowrap"
                 >
                   Add Product
                 </Button>

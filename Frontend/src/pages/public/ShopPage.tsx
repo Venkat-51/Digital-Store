@@ -134,8 +134,51 @@ const ShopPage: React.FC = () => {
         )}
       </div>
 
-      {/* Price Range */}
+      {/* Categories Filter */}
       <div>
+        <h3 className="text-sm font-bold text-gray-900 mb-3">Categories</h3>
+        <div className="space-y-1">
+          <button
+            onClick={() => {
+              updateParam('category', undefined);
+              if (isFilterOpen) setIsFilterOpen(false);
+            }}
+            className={cn(
+              'w-full text-left text-sm py-2 px-3 rounded-xl transition-all font-medium flex items-center justify-between',
+              !category
+                ? 'bg-primary-50 text-primary-700 font-bold shadow-2xs'
+                : 'text-gray-700 hover:bg-gray-100/80 hover:text-gray-900'
+            )}
+          >
+            <span>All Categories</span>
+            {!category && <span className="w-2 h-2 rounded-full bg-primary-600" />}
+          </button>
+          {NAV_CATEGORIES.map((cat) => {
+            const active = category === cat.slug;
+            return (
+              <button
+                key={cat.slug}
+                onClick={() => {
+                  updateParam('category', cat.slug);
+                  if (isFilterOpen) setIsFilterOpen(false);
+                }}
+                className={cn(
+                  'w-full text-left text-sm py-2 px-3 rounded-xl transition-all font-medium flex items-center justify-between',
+                  active
+                    ? 'bg-primary-50 text-primary-700 font-bold shadow-2xs'
+                    : 'text-gray-700 hover:bg-gray-100/80 hover:text-gray-900'
+                )}
+              >
+                <span>{cat.name}</span>
+                {active && <span className="w-2 h-2 rounded-full bg-primary-600" />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Price Range */}
+      <div className="pt-2 border-t border-gray-100">
         <h3 className="text-sm font-bold text-gray-900 mb-3">Price Range</h3>
         <div className="space-y-1">
           {PRICE_RANGES.map((range) => {
@@ -143,7 +186,10 @@ const ShopPage: React.FC = () => {
             return (
               <button
                 key={range.label}
-                onClick={() => handlePriceRangeClick(range)}
+                onClick={() => {
+                  handlePriceRangeClick(range);
+                  if (isFilterOpen) setIsFilterOpen(false);
+                }}
                 className={cn(
                   'w-full text-left text-sm py-2.5 px-3.5 rounded-xl transition-all font-medium flex items-center justify-between',
                   active
@@ -178,7 +224,7 @@ const ShopPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-100 py-8">
+      <div className="bg-white border-b border-gray-100 py-6 sm:py-8">
         <div className="container-wide">
           <Breadcrumb
             items={[
@@ -197,7 +243,7 @@ const ShopPage: React.FC = () => {
                 </p>
               )}
             </div>
-            <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
               {/* Bulk Upload CSV (Admin Only) */}
               {user?.is_staff && (
                 <Button
@@ -205,7 +251,7 @@ const ShopPage: React.FC = () => {
                   size="sm"
                   leftIcon={<Upload size={14} />}
                   onClick={() => setIsBulkModalOpen(true)}
-                  className="flex-shrink-0 text-xs sm:text-sm py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl shadow-xs"
+                  className="flex-1 sm:flex-none text-xs sm:text-sm py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl shadow-xs whitespace-nowrap"
                 >
                   Bulk Upload CSV
                 </Button>
@@ -216,7 +262,7 @@ const ShopPage: React.FC = () => {
               <select
                 value={ordering}
                 onChange={(e) => updateParam('ordering', e.target.value || undefined)}
-                className="flex-1 sm:flex-none px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border border-gray-200 text-xs sm:text-sm font-medium text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 cursor-pointer"
+                className="flex-1 sm:flex-none px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border border-gray-200 text-xs sm:text-sm font-medium text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 cursor-pointer min-w-[130px]"
               >
                 <option value="">Sort by: Default</option>
                 {SORT_OPTIONS.map((opt) => (
@@ -230,7 +276,7 @@ const ShopPage: React.FC = () => {
                 size="sm"
                 leftIcon={<SlidersHorizontal size={14} />}
                 onClick={() => setIsFilterOpen(true)}
-                className="lg:hidden flex-shrink-0 text-xs sm:text-sm py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl"
+                className="lg:hidden flex-none text-xs sm:text-sm py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl"
               >
                 Filters
               </Button>
