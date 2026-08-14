@@ -9,7 +9,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<User>;
-  googleLogin: (idToken: string) => Promise<User>;
+  googleLogin: (payloadOrToken: string | Record<string, any>) => Promise<User>;
   register: (payload: Parameters<typeof authService.register>[0]) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (user: User) => void;
