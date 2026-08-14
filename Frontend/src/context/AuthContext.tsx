@@ -51,8 +51,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return user;
   }, []);
 
-  const googleLogin = useCallback(async (idToken: string) => {
-    const res = await authService.googleLogin(idToken);
+  const googleLogin = useCallback(async (payloadOrToken: string | Record<string, any>) => {
+    const res = await authService.googleLogin(payloadOrToken);
     const tokens = res.tokens || { access: (res as any).token || 'mock_access_token', refresh: 'mock_refresh_token' };
     storeTokens(tokens);
     setUser(res.user);

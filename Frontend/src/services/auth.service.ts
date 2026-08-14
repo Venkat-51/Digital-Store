@@ -35,8 +35,11 @@ export const authService = {
     return data;
   },
 
-  googleLogin: async (idToken: string): Promise<{ tokens: AuthTokens; user: User }> => {
-    const { data } = await api.post('/auth/google/', { idToken, credential: idToken });
+  googleLogin: async (payloadOrToken: string | Record<string, any>): Promise<{ tokens: AuthTokens; user: User }> => {
+    const payload = typeof payloadOrToken === 'string'
+      ? { idToken: payloadOrToken, credential: payloadOrToken }
+      : payloadOrToken;
+    const { data } = await api.post('/auth/google/', payload);
     return data;
   },
 };
